@@ -14,13 +14,18 @@ Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, ma
 
 | No chat | Resposta |
 |---------|----------|
-| `/status` | última varredura, críticos abertos, eventos das últimas 24 h |
+| `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
+| `/varrer` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
 | `/achados` · `/achados critico` · `/achados todos` | problemas abertos |
 | `/eventos` · `/eventos 72` | ataques e eventos recentes, numerados |
 | `/evento 12` | detalhe do evento, análise da IA e botões |
 | `/silenciados` | regras de falso positivo ativas |
 | Botões nos alertas | **✅ Ataque real** · **🔕 Falso positivo** · **🤖 Explicar** |
 | Qualquer pergunta | respondida pela IA configurada, ex.: *"o que aconteceu hoje?"*, *"o PHP da loja está vulnerável?"* |
+
+Tudo que demora responde na hora com uma confirmação — "🤔 Analisando sua pergunta…",
+"🤖 Analisando o evento #12…", "🔎 Iniciando uma varredura…" — e a resposta completa chega em
+seguida.
 
 Os botões fazem o mesmo que `sentinels feedback` no terminal: falso positivo silencia eventos
 iguais por 30 dias (exceto exploração contra alvo vulnerável); ataque real faz o IP pesar mais

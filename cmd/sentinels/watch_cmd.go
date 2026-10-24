@@ -104,14 +104,6 @@ func runWatch(ctx context.Context, args []string) int {
 		logf("IA ativa: %s (análise de alertas a partir de %s, até %d/hora)", ex.analyst.Provider.Name(), aiMin.Label(), cfg.AI.MaxCallsHour)
 	}
 
-	for _, bot := range buildBots(cfg, st, ex, host) {
-		go func(b *telegram.Bot) {
-			if err := b.Run(ctx); err != nil {
-				logf("telegram: %v", err)
-			}
-		}(bot)
-	}
-
 	w := &watch.Watcher{
 		Store:        st,
 		Sources:      sources,
@@ -131,6 +123,21 @@ func runWatch(ctx context.Context, args []string) int {
 			return &scan.Result{}
 		}
 	}
+
+	// Telegram bots start after the watcher exists: "/varrer" requests a scan
+	// and the bot reports back through the AfterScan hook.
+	for _, bot := range buildBots(cfg, st, ex, host) {
+		if w.Scan != nil {
+			bot.Scanner = w
+			w.AfterScan = append(w.AfterScan, bot.ScanDone)
+		}
+		go func(b *telegram.Bot) {
+			if err := b.Run(ctx); err != nil {
+				logf("telegram: %v", err)
+			}
+		}(bot)
+	}
+
 	if err := w.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

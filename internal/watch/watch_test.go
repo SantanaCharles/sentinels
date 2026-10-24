@@ -173,3 +173,44 @@ func TestConfirmedIPRaisesSeverity(t *testing.T) {
 		t.Fatalf("IP confirmado não elevou a severidade: %+v", al.alerts)
 	}
 }
+
+func TestRequestScanRunsNowAndCallsHooks(t *testing.T) {
+	w, _ := newWatcher(t)
+	w.ScanInterval = time.Hour // only an on-demand request can trigger the 2nd scan
+	var mu sync.Mutex
+	scans, hooks := 0, 0
+	w.Scan = func(context.Context) *scan.Result {
+		mu.Lock()
+		scans++
+		mu.Unlock()
+		return &scan.Result{History: &scan.History{}}
+	}
+	w.AfterScan = []func(*scan.Result){func(*scan.Result) { mu.Lock(); hooks++; mu.Unlock() }}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.scanLoop(ctx)
+
+	wait := func(n int) bool {
+		for end := time.Now().Add(3 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+			mu.Lock()
+			ok := scans >= n && hooks >= n
+			mu.Unlock()
+			if ok {
+				return true
+			}
+		}
+		return false
+	}
+	if !wait(1) {
+		t.Fatal("primeira varredura não rodou")
+	}
+	if r := w.RequestScan(); r != ScanStarted {
+		t.Fatalf("RequestScan = %v", r)
+	}
+	if !wait(2) {
+		t.Fatal("varredura sob demanda não rodou")
+	}
+	if (&Watcher{}).RequestScan() != ScanUnavailable {
+		t.Error("sem Scan configurado deveria ser indisponível")
+	}
+}

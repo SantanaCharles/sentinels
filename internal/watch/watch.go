@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SantanaCharles/sentinels/internal/event"
@@ -47,9 +48,15 @@ type Watcher struct {
 	// Scan runs a full audit; nil disables periodic scans.
 	Scan func(ctx context.Context) *scan.Result
 	Log  func(format string, args ...any)
+	// AfterScan hooks run after each scan (e.g. the Telegram bot replying
+	// to "/varrer" with the new status).
+	AfterScan []func(*scan.Result)
 
-	mu    sync.RWMutex
-	state targetState
+	mu          sync.RWMutex
+	state       targetState
+	scanning    atomic.Bool
+	triggerOnce sync.Once
+	triggerCh   chan struct{}
 }
 
 // targetState is what the last scan taught about each target.
@@ -130,8 +137,13 @@ func (w *Watcher) runSource(ctx context.Context, src integrations.Source, out ch
 }
 
 func (w *Watcher) scanLoop(ctx context.Context) {
+	if w.Log == nil { // Run sets it; tests may call scanLoop directly
+		w.Log = func(string, ...any) {}
+	}
 	for {
+		w.scanning.Store(true)
 		res := w.Scan(ctx)
+		w.scanning.Store(false)
 		if ctx.Err() != nil {
 			return
 		}
@@ -141,12 +153,49 @@ func (w *Watcher) scanLoop(ctx context.Context) {
 				w.Log("erro ao enviar alerta: %v", err)
 			}
 		}
+		for _, fn := range w.AfterScan {
+			fn(res)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(w.ScanInterval):
+		case <-w.trigger():
+			w.Log("varredura pedida sob demanda")
 		}
 	}
+}
+
+// ScanRequest is the outcome of RequestScan.
+type ScanRequest int
+
+const (
+	ScanStarted     ScanRequest = iota // a new scan begins now
+	ScanRunning                        // one is already running; its result will be reported
+	ScanUnavailable                    // periodic scans are disabled (--no-scan)
+)
+
+// RequestScan asks for a scan now instead of waiting for the interval.
+func (w *Watcher) RequestScan() ScanRequest {
+	if w.Scan == nil {
+		return ScanUnavailable
+	}
+	if w.scanning.Load() {
+		return ScanRunning
+	}
+	select {
+	case w.trigger() <- struct{}{}:
+	default: // already queued
+	}
+	return ScanStarted
+}
+
+// Scanning reports whether a scan is in progress (the first one included).
+func (w *Watcher) Scanning() bool { return w.scanning.Load() }
+
+func (w *Watcher) trigger() chan struct{} {
+	w.triggerOnce.Do(func() { w.triggerCh = make(chan struct{}, 1) })
+	return w.triggerCh
 }
 
 // UpdateState indexes the scan for correlation.

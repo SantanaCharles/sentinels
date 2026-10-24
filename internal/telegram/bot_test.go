@@ -18,6 +18,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/finding"
 	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
+	"github.com/SantanaCharles/sentinels/internal/watch"
 )
 
 // fakeAPI is a minimal Telegram Bot API: it serves queued updates once and
@@ -199,16 +200,19 @@ func TestBotCommandsAndAuthorization(t *testing.T) {
 func TestBotFreeQuestionUsesAI(t *testing.T) {
 	bot, api, _, fp := setup(t)
 	api.queue = []map[string]any{msg(10, 555, "o que aconteceu hoje no servidor?")}
-	runUntil(t, bot, func() bool { return len(api.sent(555)) >= 1 })
+	runUntil(t, bot, func() bool { return len(api.sent(555)) >= 2 })
 	got := api.sent(555)
-	if len(got) != 1 {
-		t.Fatalf("respostas: %d", len(got))
+	if len(got) != 2 {
+		t.Fatalf("respostas: %d (quer confirmação + resposta)", len(got))
 	}
-	text := got[0].params["text"].(string)
+	if !strings.Contains(got[0].params["text"].(string), "Analisando sua pergunta") {
+		t.Errorf("confirmação imediata ausente: %s", got[0].params["text"])
+	}
+	text := got[1].params["text"].(string)
 	if strings.Contains(text, "**") || strings.Contains(text, "###") || !strings.Contains(text, "Atualize o PHP") {
 		t.Errorf("resposta deveria vir em texto simples:\n%s", text)
 	}
-	if _, ok := got[0].params["parse_mode"]; ok {
+	if _, ok := got[1].params["parse_mode"]; ok {
 		t.Error("parse_mode definido: texto de log poderia virar formatação")
 	}
 	r := fp.reqs[0]
@@ -241,5 +245,71 @@ func TestSplitLongReply(t *testing.T) {
 		if (p.buttons != nil) != (i == len(parts)-1) {
 			t.Errorf("botões fora da última parte (parte %d)", i)
 		}
+	}
+}
+
+type fakeScanner struct {
+	mu       sync.Mutex
+	running  bool
+	requests int
+}
+
+func (f *fakeScanner) RequestScan() watch.ScanRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requests++
+	if f.running {
+		return watch.ScanRunning
+	}
+	f.running = true
+	return watch.ScanStarted
+}
+
+func (f *fakeScanner) Scanning() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.running
+}
+
+func TestVarrerAcksAndReportsWhenDone(t *testing.T) {
+	bot, api, _, _ := setup(t)
+	sc := &fakeScanner{}
+	bot.Scanner = sc
+	api.queue = []map[string]any{msg(20, 555, "/varrer"), msg(21, 555, "/varrer")}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go bot.Run(ctx)
+	deadline := time.Now().Add(5 * time.Second)
+	for len(api.sent(555)) < 2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	got := api.sent(555)
+	if len(got) != 2 || !strings.Contains(got[0].params["text"].(string), "Em poucos minutos te mando o status") ||
+		!strings.Contains(got[1].params["text"].(string), "Já tem uma varredura em andamento") {
+		t.Fatalf("confirmações: %+v", got)
+	}
+
+	// The watcher finishes the scan: the chat gets the status once.
+	bot.ScanDone(&scan.Result{})
+	bot.ScanDone(&scan.Result{})
+	for len(api.sent(555)) < 3 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	got = api.sent(555)
+	if len(got) != 3 || !strings.Contains(got[2].params["text"].(string), "✅ Varredura concluída") ||
+		!strings.Contains(got[2].params["text"].(string), "Sentinels — vps-01") {
+		t.Errorf("status pós-varredura (uma vez só): %d mensagens; última: %v", len(got), got[len(got)-1].params["text"])
+	}
+}
+
+func TestStatusDuringFirstScanPromisesReport(t *testing.T) {
+	bot, api, _, _ := setup(t)
+	os.Remove(filepath.Join(bot.ReportDir, "report-20261024-010000.json")) // no scan finished yet
+	bot.Scanner = &fakeScanner{running: true}
+	api.queue = []map[string]any{msg(30, 555, "/status")}
+	runUntil(t, bot, func() bool { return len(api.sent(555)) >= 1 })
+	if got := api.sent(555); len(got) != 1 || !strings.Contains(got[0].params["text"].(string), "Mando o status assim que terminar") {
+		t.Fatalf("resposta: %+v", got)
 	}
 }

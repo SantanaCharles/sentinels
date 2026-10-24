@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"github.com/SantanaCharles/sentinels/internal/ai"
+	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
+	"github.com/SantanaCharles/sentinels/internal/watch"
 )
 
 type Bot struct {
@@ -33,14 +35,49 @@ type Bot struct {
 	Host         string
 	Analyst      *ai.Analyst // nil: free-form questions are disabled
 	MaxAIPerHour int
+	Scanner      Scanner // nil: /varrer is unavailable
 	Log          func(format string, args ...any)
 
 	client   *http.Client
 	offset   int64
+	runCtx   context.Context
 	mu       sync.Mutex
 	aiWindow time.Time
 	aiCalls  int
 	warned   map[string]bool
+	waiting  map[int64]bool // chats waiting for the end of a scan
+}
+
+// Scanner is the part of the watcher the bot can drive.
+type Scanner interface {
+	RequestScan() watch.ScanRequest
+	Scanning() bool
+}
+
+// ScanDone is registered as a watcher AfterScan hook: chats that asked for a
+// scan (or for a status before the first one finished) get the new status.
+func (b *Bot) ScanDone(_ *scan.Result) {
+	b.mu.Lock()
+	chats := b.waiting
+	b.waiting = nil
+	ctx := b.runCtx
+	b.mu.Unlock()
+	if ctx == nil {
+		return
+	}
+	for chatID := range chats {
+		st := b.status(ctx)
+		b.send(ctx, chatID, "✅ Varredura concluída.\n\n"+st.text, nil)
+	}
+}
+
+func (b *Bot) waitForScan(chatID int64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.waiting == nil {
+		b.waiting = map[int64]bool{}
+	}
+	b.waiting[chatID] = true
 }
 
 // Run polls until ctx ends, backing off on errors.
@@ -52,7 +89,10 @@ func (b *Bot) Run(ctx context.Context) error {
 		b.Log = func(string, ...any) {}
 	}
 	b.client = &http.Client{Timeout: 70 * time.Second}
+	b.mu.Lock()
 	b.warned = map[string]bool{}
+	b.runCtx = ctx
+	b.mu.Unlock()
 	b.registerCommands(ctx)
 	if err := b.skipBacklog(ctx); err != nil {
 		b.Log("telegram: %v", err)
@@ -217,6 +257,7 @@ func (b *Bot) skipBacklog(ctx context.Context) error {
 func (b *Bot) registerCommands(ctx context.Context) {
 	cmds := []map[string]string{
 		{"command": "status", "description": "Resumo do servidor"},
+		{"command": "varrer", "description": "Varredura completa agora (aviso quando terminar)"},
 		{"command": "achados", "description": "Problemas abertos (ex.: /achados critico)"},
 		{"command": "eventos", "description": "Ataques e eventos recentes (ex.: /eventos 48)"},
 		{"command": "evento", "description": "Detalhe de um evento (ex.: /evento 12)"},

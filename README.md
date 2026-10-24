@@ -122,7 +122,7 @@ sudo sentinels setup ia         # direto numa seção: rapida, ia, notificacoes,
 
 ## Conversar pelo Telegram
 
-Com a conversa ativada (`sentinels setup` → Notificações → 💬), o bot responde `/status`,
+Com a conversa ativada (`sentinels setup` → Notificações → 💬), o bot responde `/status`, `/varrer` (varredura na hora, com o status ao terminar),
 `/achados`, `/eventos`, `/evento 12`, tem botões **✅ Ataque real · 🔕 Falso positivo ·
 🤖 Explicar** nos alertas e responde perguntas livres com a IA configurada — só no chat
 autorizado e sem alterar nada no servidor. Detalhes em [docs/TELEGRAM.md](docs/TELEGRAM.md).

@@ -21,6 +21,7 @@ var icon = map[finding.Severity]string{
 const help = `🛡 Sentinels — comandos
 
 /status — resumo do servidor
+/varrer — varredura completa agora; mando o status quando terminar
 /achados — problemas abertos (ou: /achados critico | alto | medio | todos)
 /eventos — ataques e eventos das últimas 24h (ou: /eventos 72)
 /evento 12 — detalhe de um evento, com botões
@@ -41,7 +42,13 @@ func (b *Bot) onMessage(ctx context.Context, m *message) reply {
 	args := fields[1:]
 	switch cmd {
 	case "/status":
+		if _, err := scan.Latest(b.ReportDir); err != nil && b.Scanner != nil && b.Scanner.Scanning() {
+			b.waitForScan(m.Chat.ID)
+			return reply{text: "⏳ Ainda estou fazendo a primeira varredura (inclui as CVEs das imagens). Mando o status assim que terminar."}
+		}
 		return b.status(ctx)
+	case "/varrer", "/scan":
+		return b.requestScan(m.Chat.ID)
 	case "/achados":
 		return b.findings(args)
 	case "/eventos":
@@ -60,6 +67,22 @@ func (b *Bot) onMessage(ctx context.Context, m *message) reply {
 	default:
 		return reply{text: help}
 	}
+}
+
+func (b *Bot) requestScan(chatID int64) reply {
+	if b.Scanner == nil {
+		return reply{text: "Varredura sob demanda indisponível neste agente (iniciado com --no-scan)."}
+	}
+	switch b.Scanner.RequestScan() {
+	case watch.ScanRunning:
+		b.waitForScan(chatID)
+		return reply{text: "⏳ Já tem uma varredura em andamento. Assim que ela terminar eu mando o status aqui."}
+	case watch.ScanStarted:
+		b.waitForScan(chatID)
+		b.Log("telegram: varredura pedida pelo chat %d", chatID)
+		return reply{text: "🔎 Iniciando uma varredura completa agora (containers, exposição, chaves vazadas e CVEs das imagens). Em poucos minutos te mando o status."}
+	}
+	return reply{text: "Varredura sob demanda indisponível neste agente."}
 }
 
 func ago(t time.Time) string {
@@ -286,6 +309,7 @@ func (b *Bot) onButton(ctx context.Context, chatID, messageID int64, data string
 		if !b.takeAI() {
 			return "Limite de análises por hora atingido"
 		}
+		b.send(ctx, chatID, fmt.Sprintf("🤖 Analisando o evento #%d… respondo em instantes.", id), nil)
 		go b.explain(ctx, chatID, id)
 		return "Analisando…"
 	}
@@ -326,6 +350,7 @@ func (b *Bot) ask(ctx context.Context, chatID int64, question string) reply {
 	if !b.takeAI() {
 		return reply{text: "Limite de perguntas à IA por hora atingido (ai.max_calls_per_hour). Os comandos continuam funcionando: /ajuda"}
 	}
+	b.send(ctx, chatID, "🤔 Analisando sua pergunta com os dados do servidor… respondo em instantes.", nil)
 	b.typing(ctx, chatID)
 	snap, tags := b.snapshot(ctx)
 	actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
