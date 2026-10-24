@@ -1,0 +1,10 @@
+/bin/
+/dist/
+*.exe
+sentinels.yaml
+.env
+sentinels.env
+reports/
+
+# chave de assinatura do feed: nunca no repositório
+*.key

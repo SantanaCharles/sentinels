@@ -1,0 +1,50 @@
+[Unit]
+Description=Sentinels — agente de segurança (varredura, monitoramento e alertas)
+Documentation=https://github.com/SantanaCharles/sentinels
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sentinels
+Group=sentinels
+# Grupos (docker para a API do Docker, adm para logs) vêm do /etc/group:
+# o install.sh adiciona o usuário só aos grupos que existem no servidor.
+EnvironmentFile=-/etc/sentinels/sentinels.env
+Environment=TRIVY_CACHE_DIR=/var/lib/sentinels/trivy
+ExecStart=/usr/local/bin/sentinels watch -config /etc/sentinels/sentinels.yaml
+Restart=on-failure
+RestartSec=10s
+WorkingDirectory=/var/lib/sentinels
+StateDirectory=sentinels
+StateDirectoryMode=0750
+
+# Sandbox: o agente só lê o sistema e só escreve em /var/lib/sentinels.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0027
+MemoryMax=512M
+TasksMax=200
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+# Configuração para o docker-compose (copie para sentinels.yaml).
+# Referência completa: sentinels.example.yaml na raiz do projeto.
+
+# docker.socket vem de DOCKER_HOST (tcp://127.0.0.1:2375, o proxy somente leitura).
+
+scan:
+  interval: 6h
+  report_dir: /var/lib/sentinels/reports
+  cache_dir: /var/lib/sentinels/cache
+  # urls: [https://meusite.com.br]
+
+storage:
+  path: /var/lib/sentinels/sentinels.db
+
+integrations:
+  trivy:    { enabled: auto }
+  crowdsec: { enabled: auto, url: http://127.0.0.1:8080, api_key_env: SENTINELS_CROWDSEC_KEY }
+  suricata: { enabled: auto, eve_log: /var/log/suricata/eve.json }
+  falco:    { enabled: auto, listen: 127.0.0.1:2801 }
+
+alerts:
+  min_severity: high
+  notifiers:
+    # - type: telegram
+    #   token_env: SENTINELS_TELEGRAM_TOKEN
+    #   chat_id: "-1001234567890"
+
+ai:
+  enabled: false
+  provider: anthropic
+  model: claude-sonnet-5-5
+  api_key_env: SENTINELS_AI_KEY
+
+vault:
+  enabled: false
+  path: /var/lib/sentinels/vault

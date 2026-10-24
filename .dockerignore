@@ -1,0 +1,9 @@
+.git
+bin/
+dist/
+*.key
+*.exe
+.env
+sentinels.env
+sentinels.yaml
+deploy/data/

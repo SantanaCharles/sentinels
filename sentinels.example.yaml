@@ -1,0 +1,81 @@
+# Sentinels — configuração de exemplo
+# Copie para /etc/sentinels/sentinels.yaml
+# Segredos SEMPRE via variáveis de ambiente (campos *_env).
+
+docker:
+  socket: /var/run/docker.sock
+
+scan:
+  interval: 6h            # varredura periódica no modo watch
+  report_dir: /var/lib/sentinels/reports
+
+storage:
+  path: /var/lib/sentinels/sentinels.db   # memória local (eventos e histórico de achados)
+  retention_days: 90
+
+databases:
+  # - name: educare
+  #   driver: postgres
+  #   dsn_env: SENTINELS_DB_EDUCARE   # usuário somente leitura
+  #   app_role: app_user              # role usado pela aplicação
+
+integrations:
+  trivy:    { enabled: auto }         # auto = usa se estiver instalado
+  # chave: `cscli bouncers add sentinels`
+  crowdsec: { enabled: auto, url: http://127.0.0.1:8080, api_key_env: SENTINELS_CROWDSEC_KEY }
+  suricata: { enabled: auto, eve_log: /var/log/suricata/eve.json }
+  # no falco.yaml: http_output: { enabled: true, url: "http://127.0.0.1:2801/falco" }
+  falco:    { enabled: auto, listen: 127.0.0.1:2801 }
+
+alerts:
+  min_severity: high          # padrão de todos os canais
+  dedup_window: 15m           # repetições dentro da janela só aumentam o contador
+  # Teste os canais com: sentinels notify-test
+  notifiers:
+    # Telegram: crie o bot com @BotFather; chat_id de grupo começa com -100
+    # - type: telegram
+    #   token_env: SENTINELS_TELEGRAM_TOKEN
+    #   chat_id: "-1001234567890"
+    #   min_severity: critical          # opcional, sobrepõe o padrão
+    # - type: slack
+    #   webhook_env: SENTINELS_SLACK_WEBHOOK
+    # - type: discord
+    #   webhook_env: SENTINELS_DISCORD_WEBHOOK
+    # E-mail: porta 465 = TLS direto; outras exigem STARTTLS
+    # - type: email
+    #   smtp_host: smtp.exemplo.com:587
+    #   user_env: SENTINELS_SMTP_USER
+    #   password_env: SENTINELS_SMTP_PASSWORD
+    #   from: "Sentinels <sentinels@exemplo.com>"
+    #   to: [admin@exemplo.com]
+    # Webhook: JSON assinado com HMAC-SHA256 (header X-Sentinels-Signature)
+    # - type: webhook
+    #   name: n8n
+    #   url_env: SENTINELS_WEBHOOK_URL
+    #   secret_env: SENTINELS_WEBHOOK_SECRET
+
+# IA opcional: resumo executivo nos relatórios e análise dos alertas graves.
+# A detecção e os alertas funcionam sem ela. Teste com: sentinels ai-test
+ai:
+  enabled: false
+  # anthropic | openai | gemini | openrouter | ollama | lmstudio | openai-compatible
+  provider: anthropic
+  model: claude-sonnet-5-5
+  api_key_env: SENTINELS_AI_KEY       # ollama e lmstudio locais não precisam de chave
+  # base_url: http://127.0.0.1:11434/v1   # só para mudar o endereço padrão do provedor
+  min_severity: critical              # alertas que recebem análise da IA
+  max_calls_per_hour: 20              # teto de custo para análises de alertas
+  report_summary: true                # resumo executivo no topo de cada relatório
+  keep_ips: false                     # false = IPs viram [IP-1] antes de sair do servidor (LGPD)
+  skills_dir: /etc/sentinels/skills   # suas skills SKILL.md (somam ou substituem as embutidas)
+
+# Cofre compatível com Obsidian: relatórios, incidentes e uma nota por ativo/técnica.
+# Abra a pasta no Obsidian (direto no servidor, ou sincronizada com Syncthing/rsync).
+vault:
+  enabled: false
+  path: /var/lib/sentinels/vault
+
+# Servidor MCP somente leitura (sentinels mcp) — veja docs/MCP.md
+mcp:
+  keep_ips: false                     # false = IPs viram [IP-1] nas respostas
+  token_env: SENTINELS_MCP_TOKEN      # obrigatório só no modo --http

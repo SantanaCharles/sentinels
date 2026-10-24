@@ -1,0 +1,25 @@
+[
+  {
+    "id": "php2shell-2026-10",
+    "title": "PHP2Shell — execução remota de código sem autenticação no PHP",
+    "cves": ["CVE-2026-109618", "CVE-2026-109619"],
+    "product": "php",
+    "published": "2026-10-21",
+    "severity": "critical",
+    "fixed": {
+      "8.5": "8.5.12",
+      "8.4": "8.4.27",
+      "8.3": "8.3.36",
+      "8.2": "8.2.35"
+    },
+    "affected_min": "5.4.0",
+    "eol_vulnerable": true,
+    "summary": "Duas falhas no núcleo do PHP (CVSS v4 9.2) permitem executar código no servidor sem login. Afetam praticamente todas as versões desde a 5.4 em qualquer modo que atenda requisições web (mod_php, PHP-FPM, php-cgi, FrankenPHP, LiteSpeed). O risco é maior com Apache + mod_php. Há relatos de tentativas de exploração desde a divulgação.",
+    "remediation": "Atualize para PHP 8.5.12, 8.4.27, 8.3.36 ou 8.2.35 (ou posterior). Em imagens oficiais `php:*`, troque a tag e recrie o container; em imagens de aplicação (WordPress, Nextcloud, Moodle…), atualize para a versão da imagem publicada após 21/10/2026. Versões 8.1 e anteriores não têm correção oficial: migre de versão. Não há mitigação completa por configuração ou WAF.",
+    "references": [
+      "https://www.php.net/archive/2026.php",
+      "https://www.cisa.gov/news-events/alerts/2026/10/21/critical-vulnerabilities-php-require-immediate-patching",
+      "https://github.com/ncsc-nl/php2shell"
+    ]
+  }
+]

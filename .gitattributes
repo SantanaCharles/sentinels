@@ -1,0 +1,4 @@
+# O feed é assinado byte a byte: o Git não pode converter finais de linha.
+internal/intel/advisories.json -text
+internal/intel/advisories.json.sig -text
+*.sh text eol=lf

@@ -1,0 +1,54 @@
+# Sentinels com Docker Compose.
+#
+#   cp sentinels.docker.yaml sentinels.yaml     # ajuste
+#   cp sentinels.env.example sentinels.env      # chaves e tokens; chmod 600 sentinels.env
+#   docker compose up -d
+#   docker compose exec sentinels sentinels doctor
+#
+# O agente NÃO recebe o socket do Docker: fala com um proxy que só aceita leitura
+# de containers e imagens (POST/DELETE bloqueados). Mesmo que o agente fosse
+# comprometido, ele não conseguiria criar containers nem controlar o host.
+name: sentinels
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1   # GET /containers/json e /containers/{id}/json
+      IMAGES: 1       # Trivy lê as imagens locais
+      POST: 0         # nenhuma escrita
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"   # só localhost
+    labels:
+      io.sentinels.self: "true"
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+
+  sentinels:
+    image: ghcr.io/santanacharles/sentinels:latest
+    build: ..                    # sem imagem publicada? `docker compose build`
+    restart: unless-stopped
+    depends_on: [socket-proxy]
+    # Rede do host: o agente testa as portas publicadas em 127.0.0.1, vê os
+    # serviços escutando no host e recebe o Falco em 127.0.0.1:2801.
+    network_mode: host
+    environment:
+      DOCKER_HOST: tcp://127.0.0.1:2375
+    env_file: [./sentinels.env]
+    volumes:
+      - ./sentinels.yaml:/etc/sentinels/sentinels.yaml:ro
+      - sentinels-data:/var/lib/sentinels
+      # Opcional: alertas do Suricata
+      # - /var/log/suricata:/var/log/suricata:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    pids_limit: 200
+
+volumes:
+  sentinels-data:
