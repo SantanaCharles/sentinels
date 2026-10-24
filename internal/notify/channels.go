@@ -52,6 +52,7 @@ func redact(err error, url string) error {
 type Telegram struct {
 	Token   string
 	ChatID  string
+	Buttons bool   // feedback buttons on event alerts (needs the interactive bot)
 	APIBase string // tests only; default https://api.telegram.org
 }
 
@@ -62,11 +63,21 @@ func (t *Telegram) Send(ctx context.Context, m Message) error {
 	if base == "" {
 		base = "https://api.telegram.org"
 	}
-	return postJSON(ctx, base+"/bot"+t.Token+"/sendMessage", map[string]any{
-		"chat_id":                  t.ChatID,
-		"text":                     Truncate(Text(m), 4000),
-		"disable_web_page_preview": true,
-	}, nil)
+	text := Text(m)
+	params := map[string]any{"chat_id": t.ChatID, "disable_web_page_preview": true}
+	if t.Buttons && m.EventID > 0 {
+		// The buttons replace the "sentinels feedback" hint; the bot in
+		// internal/telegram handles these callback formats.
+		text = strings.Replace(text, fmt.Sprintf("Evento #%d — falso positivo? sentinels feedback %d fp", m.EventID, m.EventID), fmt.Sprintf("Evento #%d", m.EventID), 1)
+		id := strconv.FormatInt(m.EventID, 10)
+		params["reply_markup"] = map[string]any{"inline_keyboard": [][]map[string]string{{
+			{"text": "✅ Ataque real", "callback_data": "ok:" + id},
+			{"text": "🔕 Falso positivo", "callback_data": "fp:" + id},
+			{"text": "🤖 Explicar", "callback_data": "ex:" + id},
+		}}}
+	}
+	params["text"] = Truncate(text, 4000)
+	return postJSON(ctx, base+"/bot"+t.Token+"/sendMessage", params, nil)
 }
 
 // Slack uses an incoming webhook. &, < and > are escaped so text like

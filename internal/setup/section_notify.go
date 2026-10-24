@@ -23,6 +23,13 @@ func (s *Session) sectionNotify(ctx context.Context) error {
 	for {
 		opts := []huh.Option[string]{}
 		for i, n := range s.Cfg.Alerts.Notifiers {
+			if n.Type == "telegram" {
+				label := "💬 ativar conversa (comandos, botões e perguntas): "
+				if n.Interactive {
+					label = "💬 desativar conversa: "
+				}
+				opts = append(opts, huh.NewOption(label+describe(n), fmt.Sprintf("chat:%d", i)))
+			}
 			opts = append(opts, huh.NewOption("✖ remover: "+describe(n), fmt.Sprintf("rm:%d", i)))
 		}
 		opts = append(opts,
@@ -46,6 +53,17 @@ func (s *Session) sectionNotify(ctx context.Context) error {
 			}
 		case choice == "test":
 			s.testNotifiers(ctx)
+		case strings.HasPrefix(choice, "chat:"):
+			var i int
+			fmt.Sscanf(choice, "chat:%d", &i)
+			n := &s.Cfg.Alerts.Notifiers[i]
+			n.Interactive = !n.Interactive
+			s.dirty = true
+			if n.Interactive {
+				fmt.Fprintln(s.Out, "✔ Conversa ativada. Salve e reinicie o agente; depois mande /ajuda para o bot.")
+			} else {
+				fmt.Fprintln(s.Out, "Conversa desativada: o bot só enviará alertas.")
+			}
 		case strings.HasPrefix(choice, "rm:"):
 			var i int
 			fmt.Sscanf(choice, "rm:%d", &i)
@@ -62,6 +80,9 @@ func describe(n config.Notifier) string {
 	switch n.Type {
 	case "telegram":
 		d += " (chat " + n.ChatID + ")"
+		if n.Interactive {
+			d += " 💬"
+		}
 	case "email":
 		d += " (" + strings.Join(n.To, ", ") + ")"
 	}
@@ -133,6 +154,9 @@ func (s *Session) addNotifier(ctx context.Context) error {
 		return err
 	}
 	n.MinSeverity = min
+	if kind == "telegram" {
+		n.Interactive = s.confirm("Conversar com o agente por este chat? (/status, botões nos alertas e perguntas à IA — só este chat é atendido)", true)
+	}
 	s.Cfg.Alerts.Notifiers = append(s.Cfg.Alerts.Notifiers, n)
 	s.dirty = true
 	fmt.Fprintln(s.Out, "✔ Canal adicionado:", describe(n))

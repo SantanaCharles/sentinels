@@ -45,7 +45,7 @@ func Build(cfg config.Alerts) ([]Channel, error) {
 			if n.ChatID == "" {
 				return nil, fmt.Errorf("%s: chat_id obrigatório", where)
 			}
-			nt = &Telegram{Token: tok, ChatID: n.ChatID}
+			nt = &Telegram{Token: tok, ChatID: n.ChatID, Buttons: n.Interactive}
 		case "slack":
 			u, err := need(n.WebhookEnv)
 			if err != nil {

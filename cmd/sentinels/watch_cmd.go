@@ -16,6 +16,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/notify"
 	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
+	"github.com/SantanaCharles/sentinels/internal/telegram"
 	"github.com/SantanaCharles/sentinels/internal/watch"
 )
 
@@ -103,6 +104,14 @@ func runWatch(ctx context.Context, args []string) int {
 		logf("IA ativa: %s (análise de alertas a partir de %s, até %d/hora)", ex.analyst.Provider.Name(), aiMin.Label(), cfg.AI.MaxCallsHour)
 	}
 
+	for _, bot := range buildBots(cfg, st, ex, host) {
+		go func(b *telegram.Bot) {
+			if err := b.Run(ctx); err != nil {
+				logf("telegram: %v", err)
+			}
+		}(bot)
+	}
+
 	w := &watch.Watcher{
 		Store:        st,
 		Sources:      sources,
@@ -128,6 +137,31 @@ func runWatch(ctx context.Context, args []string) int {
 	}
 	logf("encerrado")
 	return 0
+}
+
+// buildBots creates one Telegram bot per token among the channels marked
+// interactive; each bot obeys only the chat_ids configured for it.
+func buildBots(cfg config.Config, st *store.Store, ex extras, host string) []*telegram.Bot {
+	byToken := map[string]*telegram.Bot{}
+	var out []*telegram.Bot
+	for _, n := range cfg.Alerts.Notifiers {
+		if n.Type != "telegram" || !n.Interactive || n.ChatID == "" {
+			continue
+		}
+		token := config.Secret(n.TokenEnv)
+		if token == "" {
+			continue
+		}
+		b, ok := byToken[token]
+		if !ok {
+			b = &telegram.Bot{Token: token, AllowedChats: map[string]bool{}, Store: st, ReportDir: cfg.Scan.ReportDir,
+				Host: host, Analyst: ex.analyst, MaxAIPerHour: cfg.AI.MaxCallsHour, Log: logf}
+			byToken[token] = b
+			out = append(out, b)
+		}
+		b.AllowedChats[n.ChatID] = true
+	}
+	return out
 }
 
 // buildSources turns the integrations section into event sources. "auto"

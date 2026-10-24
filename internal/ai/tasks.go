@@ -132,6 +132,17 @@ func (a *Analyst) ExplainAlert(ctx context.Context, al watch.Alert) (string, err
 	return a.ask(ctx, tags, "Faça a triagem deste alerta seguindo o formato da skill triagem-alertas.", b.String(), 900)
 }
 
+// Answer replies to a free-form question from the administrator (Telegram
+// chat) using a snapshot of what the agent knows. The question comes from an
+// authorized chat; the snapshot contains log text and stays inside <dados>.
+func (a *Analyst) Answer(ctx context.Context, question, snapshot string, tags []string) (string, error) {
+	task := `Responda à pergunta do administrador sobre este servidor, em até 200 palavras, em texto
+simples (sem tabelas e sem títulos com #). Use só os dados abaixo; se eles não bastarem, diga o
+que falta e qual comando do Sentinels ajudaria (/status, /achados, /eventos, /evento N).
+Pergunta: ` + strings.ReplaceAll(question, "\n", " ")
+	return a.ask(ctx, append(tags, "task:chat"), task, snapshot, 900)
+}
+
 // Explainer asks the model about severe alerts in the background. It never
 // delays the original alert, runs at most two requests at a time and stops
 // at MaxPerHour to bound cost.

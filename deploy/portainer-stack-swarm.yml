@@ -34,7 +34,7 @@ services:
           memory: 64M
 
   sentinels:
-    image: ghcr.io/santanacharles/sentinels:v0.1.0
+    image: ghcr.io/santanacharles/sentinels:v0.2.0
     command: ["watch", "-config", "/var/lib/sentinels/sentinels.yaml"]
     environment:
       DOCKER_HOST: tcp://127.0.0.1:2375

@@ -319,3 +319,26 @@ func TestBuildValidates(t *testing.T) {
 		t.Error("webhook http público aceito")
 	}
 }
+
+func TestTelegramButtonsOnEventAlerts(t *testing.T) {
+	srv, got := capture(t)
+	tg := &Telegram{Token: "1:x", ChatID: "-100", APIBase: srv.URL, Buttons: true}
+	if err := tg.Send(context.Background(), sample()); err != nil {
+		t.Fatal(err)
+	}
+	_, body, _ := got()
+	kb, ok := body["reply_markup"].(map[string]any)
+	if !ok || !strings.Contains(body["_raw"].(string), `"callback_data":"fp:42"`) {
+		t.Fatalf("botões ausentes: %v", body["reply_markup"])
+	}
+	_ = kb
+	if strings.Contains(body["text"].(string), "sentinels feedback") {
+		t.Error("dica de linha de comando deveria sair quando há botões")
+	}
+	// Without the interactive bot, no buttons (nobody would answer them).
+	tg.Buttons = false
+	tg.Send(context.Background(), sample())
+	if _, body, _ = got(); body["reply_markup"] != nil {
+		t.Error("botões enviados sem conversa ativa")
+	}
+}

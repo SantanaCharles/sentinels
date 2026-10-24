@@ -1,0 +1,47 @@
+# Conversar com o agente pelo Telegram
+
+Além de receber alertas, você pode consultar o agente e responder aos alertas pelo chat.
+
+## Ativar
+
+`sentinels setup` → **Notificações**:
+- canal Telegram novo: responda "Sim" em *"Conversar com o agente por este chat?"*;
+- canal que já existe: escolha **💬 ativar conversa**.
+
+Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, mande `/ajuda`.
+
+## O que dá para fazer
+
+| No chat | Resposta |
+|---------|----------|
+| `/status` | última varredura, críticos abertos, eventos das últimas 24 h |
+| `/achados` · `/achados critico` · `/achados todos` | problemas abertos |
+| `/eventos` · `/eventos 72` | ataques e eventos recentes, numerados |
+| `/evento 12` | detalhe do evento, análise da IA e botões |
+| `/silenciados` | regras de falso positivo ativas |
+| Botões nos alertas | **✅ Ataque real** · **🔕 Falso positivo** · **🤖 Explicar** |
+| Qualquer pergunta | respondida pela IA configurada, ex.: *"o que aconteceu hoje?"*, *"o PHP da loja está vulnerável?"* |
+
+Os botões fazem o mesmo que `sentinels feedback` no terminal: falso positivo silencia eventos
+iguais por 30 dias (exceto exploração contra alvo vulnerável); ataque real faz o IP pesar mais
+nos próximos alertas por 90 dias.
+
+## Segurança
+
+- **Só o chat configurado é atendido.** Mensagens e botões vindos de qualquer outro chat são
+  ignorados (e registrados uma vez no log). Em grupo, todos os membros do grupo podem usar o bot —
+  use um grupo só da equipe.
+- **Nada é alterado no servidor.** O bot consulta dados e grava feedback; não reinicia
+  containers, não bloqueia IPs, não executa comandos.
+- **Sem porta aberta.** O agente busca as mensagens no Telegram (long polling).
+- **Mensagens antigas são ignoradas**: o que chegou enquanto o agente estava parado não é
+  respondido.
+- Respostas em texto simples (sem formatação), segredos mascarados; perguntas à IA usam a mesma
+  redação dos alertas (`[IP-1]`…) e contam no limite `ai.max_calls_per_hour`.
+
+## Vários servidores
+
+O Telegram permite **um único leitor por bot**. Com mais de um agente (vários servidores ou um
+Swarm com vários nós), crie **um bot por servidor** para a conversa — o mesmo grupo pode receber
+os alertas de todos. Se dois agentes lerem o mesmo bot, o log mostra
+*"outro processo está lendo este bot"*.

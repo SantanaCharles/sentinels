@@ -85,6 +85,9 @@ type Notifier struct {
 	PasswordEnv string   `yaml:"password_env,omitempty"`
 	From        string   `yaml:"from,omitempty"`
 	To          []string `yaml:"to,omitempty"`
+	// Interactive (telegram): the agent answers commands, questions and alert
+	// buttons in this chat. Only this chat_id is obeyed.
+	Interactive bool `yaml:"interactive,omitempty"`
 }
 
 type AI struct {

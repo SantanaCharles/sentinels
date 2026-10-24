@@ -3,11 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -134,22 +130,7 @@ func severityOr(s string, def finding.Severity) (finding.Severity, error) {
 }
 
 // latestResult loads the newest report-*.json.
-func (d Deps) latestResult() (*scan.Result, error) {
-	files, _ := filepath.Glob(filepath.Join(d.ReportDir, "report-*.json"))
-	if len(files) == 0 {
-		return nil, errors.New("nenhuma varredura encontrada; rode `sentinels scan`")
-	}
-	sort.Strings(files) // timestamped names sort chronologically
-	b, err := os.ReadFile(files[len(files)-1])
-	if err != nil {
-		return nil, err
-	}
-	var r scan.Result
-	if err := json.Unmarshal(b, &r); err != nil {
-		return nil, fmt.Errorf("relatório ilegível: %w", err)
-	}
-	return &r, nil
-}
+func (d Deps) latestResult() (*scan.Result, error) { return scan.Latest(d.ReportDir) }
 
 func (d Deps) summary(ctx context.Context, _ json.RawMessage) (string, error) {
 	type item struct {

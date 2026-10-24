@@ -120,6 +120,13 @@ sudo sentinels setup ia         # direto numa seção: rapida, ia, notificacoes,
   campos de senha não aparecem na tela. A versão anterior da configuração fica em `.bak`.
 - Sem terminal interativo (ou com `--plain`) vira perguntas simples, uma por linha.
 
+## Conversar pelo Telegram
+
+Com a conversa ativada (`sentinels setup` → Notificações → 💬), o bot responde `/status`,
+`/achados`, `/eventos`, `/evento 12`, tem botões **✅ Ataque real · 🔕 Falso positivo ·
+🤖 Explicar** nos alertas e responde perguntas livres com a IA configurada — só no chat
+autorizado e sem alterar nada no servidor. Detalhes em [docs/TELEGRAM.md](docs/TELEGRAM.md).
+
 Para scripts: `sentinels config show`, `config get ai.model`, `config set alerts.min_severity critical`,
 `config set-secret SENTINELS_AI_KEY` (lê sem eco).
 
@@ -202,6 +209,7 @@ sempre em bloco de código, para que nada injetado por um atacante seja renderiz
 - [Integrações de tempo real (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
 - [Escrevendo skills](docs/SKILLS.md)
 - [Servidor MCP (Claude Code, Claude Desktop, ChatGPT…)](docs/MCP.md)
+- [Conversar pelo Telegram](docs/TELEGRAM.md)
 
 ## Roadmap
 
