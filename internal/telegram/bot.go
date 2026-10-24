@@ -35,7 +35,7 @@ type Bot struct {
 	Host         string
 	Analyst      *ai.Analyst // nil: free-form questions are disabled
 	MaxAIPerHour int
-	Scanner      Scanner // nil: /varrer is unavailable
+	Scanner      Scanner // nil: /scan is unavailable
 	Log          func(format string, args ...any)
 
 	client   *http.Client
@@ -259,13 +259,13 @@ func (b *Bot) skipBacklog(ctx context.Context) error {
 
 func (b *Bot) registerCommands(ctx context.Context) {
 	cmds := []map[string]string{
-		{"command": "status", "description": "Resumo do servidor"},
-		{"command": "varrer", "description": "Varredura completa agora (aviso quando terminar)"},
-		{"command": "achados", "description": "Problemas abertos (ex.: /achados critico)"},
-		{"command": "eventos", "description": "Ataques e eventos recentes (ex.: /eventos 48)"},
-		{"command": "evento", "description": "Detalhe de um evento (ex.: /evento 12)"},
-		{"command": "silenciados", "description": "Regras de falso positivo ativas"},
-		{"command": "ajuda", "description": "Como usar"},
+		{"command": "status", "description": "Server summary"},
+		{"command": "scan", "description": "Full scan now (status when it finishes)"},
+		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
+		{"command": "events", "description": "Recent attacks and events (e.g. /events 48)"},
+		{"command": "event", "description": "Event details (e.g. /event 12)"},
+		{"command": "muted", "description": "Active false-positive rules"},
+		{"command": "help", "description": "How to use"},
 	}
 	if err := b.call(ctx, "setMyCommands", map[string]any{"commands": cmds}, nil); err != nil {
 		b.Log("telegram: não consegui registrar o menu de comandos: %v", err)

@@ -1,72 +1,74 @@
 # Sentinels
 
-Agente de segurança **gratuito e open source** para servidores e VPS. Instale no seu servidor e ele:
+**Free and open-source** security agent for servers and VPSs. Install it on your server and it:
 
-1. **Descobre** os containers e aplicações publicadas e identifica a stack de cada uma.
-2. **Audita** a configuração e gera um relatório de vulnerabilidades críticas.
-3. **Monitora** em tempo real os sinais de ataque coletados por ferramentas consagradas.
-4. **Alerta** os administradores (Telegram, Slack, Discord, e-mail ou webhook).
-5. **Explica** os achados com a IA de sua escolha — Claude, GPT, Gemini, OpenRouter, Ollama, LM Studio.
+1. **Discovers** your containers and published apps and identifies each one's stack.
+2. **Audits** their configuration and produces a report of critical vulnerabilities.
+3. **Monitors** attack signals in real time, collected by proven open-source engines.
+4. **Alerts** administrators (Telegram, Slack, Discord, e-mail or webhook) — and lets them reply from Telegram.
+5. **Explains** findings with the AI of your choice — Claude, GPT, Gemini, OpenRouter, Ollama, LM Studio.
 
-> Status: **v0.1 — pronto para testes em servidor**. Veja o [roadmap](#roadmap).
+> Status: **v0.2 — ready for testing on real servers.** See the [roadmap](#roadmap).
+> The user interface (setup menus, alerts, bot replies) and the detailed docs in `docs/` are
+> currently in Brazilian Portuguese; commands and configuration keys are in English.
 
 ---
 
-## Por que o Sentinels
+## Why Sentinels
 
-Pequenas equipes publicam aplicações em uma VPS com Docker e raramente têm tempo para auditar
-configuração, acompanhar CVEs e olhar logs. O Sentinels junta essas tarefas em um único agente
-leve, sem custo e sem enviar dados para lugar nenhum além do que você configurar.
+Small teams ship apps to a Docker VPS and rarely have time to audit configuration, track CVEs
+and read logs. Sentinels bundles those jobs into one lightweight agent — free, and sending data
+nowhere except where you configure it to.
 
-## Princípios
+## Principles
 
-- **Não reinventar detecção.** Assinaturas de ataque conhecidas são mantidas por projetos
-  maduros (Trivy, CrowdSec, Suricata, Falco). O Sentinels integra, correlaciona e alerta.
-- **IA fora do caminho crítico.** A detecção funciona sem IA. A IA só resume relatórios e
-  explica alertas, nunca executa ações no servidor.
-- **Privacidade por padrão.** Valores de segredos nunca são lidos nem enviados; só os nomes.
-  Dados enviados à IA passam por redação (mascaramento) antes.
-- **Somente leitura.** O agente observa e alerta. Não bloqueia, não altera containers.
-- **Um binário, sem dependências.** Escrito em Go.
+- **Don't reinvent detection.** Known attack signatures are maintained by mature projects
+  (Trivy, CrowdSec, Suricata, Falco). Sentinels integrates, correlates and alerts.
+- **AI off the critical path.** Detection works without AI. The AI only summarizes reports and
+  explains alerts; it never takes actions on the server.
+- **Private by default.** Secret values are never read or sent — only their names. Anything sent
+  to an AI is redacted first.
+- **Read-only.** The agent observes and alerts. It does not block traffic or modify containers.
+- **One binary, no dependencies.** Written in Go.
 
-## O que é verificado
+## What it checks
 
-| Área | Exemplos de verificação |
-|------|-------------------------|
-| Containers | container privilegiado, `docker.sock` montado, rodando como root, rede do host |
-| Exposição | banco de dados ou painel administrativo acessível pela internet |
-| Imagens | CVEs conhecidas via Trivy |
-| Chaves vazadas | API keys, tokens e chaves privadas embutidas nas imagens (arquivos e histórico de build), `.env`/`.git` servidos pelo site, segredos em variáveis de ambiente — o valor nunca é lido nem guardado |
-| Web | headers de segurança ausentes, versão do servidor exposta |
-| Banco (PostgreSQL) | tabelas multitenant sem Row-Level Security, RLS sem `FORCE`, app conectando como owner/superuser |
-| Tempo real | alertas de CrowdSec, Suricata e Falco correlacionados por container/aplicação |
+| Area | Examples |
+|------|----------|
+| Containers | privileged containers, mounted `docker.sock`, running as root, host network |
+| Exposure | databases or admin panels reachable from the internet |
+| Images | known CVEs via Trivy |
+| Leaked keys | API keys, tokens and private keys baked into images (files and build history), `.env`/`.git` served by the website, secrets in environment variables — values are never read or stored |
+| Web | missing security headers, exposed server version, permissive CORS |
+| Database (PostgreSQL) | multi-tenant tables without Row-Level Security, RLS without `FORCE`, app connecting as owner/superuser |
+| Real time | CrowdSec, Suricata and Falco alerts correlated per container/app |
 
-## Bases de conhecimento
+## Knowledge bases
 
-| Base | Uso |
-|------|-----|
-| CIS Docker Benchmark | referência das verificações de containers |
-| OWASP Top 10 / ASVS | verificações web |
-| Alertas emergenciais | falhas graves exploradas **antes** de entrarem no KEV (ex.: PHP2Shell, out/2026) |
-| CISA KEV | CVEs exploradas ativamente sobem para **Crítico** |
-| EPSS | probabilidade de exploração, ordena o que corrigir primeiro |
-| MITRE ATT&CK | nome padrão da técnica em cada alerta |
-| CWE | tipo de falha e referência de correção |
+| Source | Used for |
+|--------|----------|
+| CIS Docker Benchmark | reference for the container checks |
+| OWASP Top 10 / ASVS | web checks |
+| Emergency advisories | critical flaws exploited **before** they reach KEV (e.g. PHP2Shell, Oct 2026) — signed feed |
+| CISA KEV | actively exploited CVEs are raised to **Critical** |
+| EPSS | exploitation probability, to order what to fix first |
+| MITRE ATT&CK | standard technique name on every alert |
+| CWE | weakness type and remediation reference |
 
-## Skills de segurança para a IA
+## Security skills for the AI
 
-Arquivos `SKILL.md` (formato aberto de Agent Skills) com conhecimento por tema — triagem de
-alertas, hardening Docker/VPS, RLS no PostgreSQL, resposta a incidentes, LGPD. O Sentinels envia
-a skill relevante junto do contexto, então funciona com qualquer provedor. Skills próprias podem
-ser adicionadas em `/etc/sentinels/skills/` — veja [docs/SKILLS.md](docs/SKILLS.md).
+`SKILL.md` files (the open Agent Skills format) with focused knowledge — alert triage,
+Docker/VPS hardening, PostgreSQL RLS, incident response, LGPD (Brazilian data-protection law).
+Sentinels sends the relevant skills along with the context, so it works with any provider. Add
+your own in `/etc/sentinels/skills/` — see [docs/SKILLS.md](docs/SKILLS.md).
 
-Embutidas: `triagem-alertas`, `resposta-incidentes`, `lgpd-incidentes`, `postgres-rls`,
+Built in: `triagem-alertas`, `resposta-incidentes`, `lgpd-incidentes`, `postgres-rls`,
 `hardening-docker`, `hardening-vps`, `php-seguranca`, `seguranca-web`.
 
-## Instalação
+## Installation
 
-**Docker Compose** (recomendado — já inclui o Trivy e usa um proxy somente leitura no lugar do
-socket do Docker):
+**Docker Compose** (recommended — ships with Trivy and talks to Docker through a read-only
+proxy instead of the Docker socket):
 
 ```bash
 git clone https://github.com/SantanaCharles/sentinels && cd sentinels/deploy
@@ -75,12 +77,12 @@ cp sentinels.env.example sentinels.env && chmod 600 sentinels.env
 docker compose up -d
 ```
 
-**Portainer**: Stacks → Add stack → cole [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml)
-(ou [`deploy/portainer-stack-swarm.yml`](deploy/portainer-stack-swarm.yml) em **Docker Swarm**)
-e configure pelo Console do container (`sentinels setup`). Passo a passo em
+**Portainer**: Stacks → Add stack → paste [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml)
+(or [`deploy/portainer-stack-swarm.yml`](deploy/portainer-stack-swarm.yml) on **Docker Swarm**)
+and configure it from the container console (`sentinels setup`). Step by step in
 [docs/INSTALACAO.md](docs/INSTALACAO.md#opção-a2--portainer-stack).
 
-**Binário + systemd** (confere o SHA-256 de tudo antes de instalar):
+**Binary + systemd** (verifies the SHA-256 of every file before installing):
 
 ```bash
 curl -fsSL https://github.com/SantanaCharles/sentinels/releases/latest/download/install.sh -o install.sh
@@ -88,83 +90,88 @@ sudo sh install.sh
 sudo systemctl enable --now sentinels
 ```
 
-Detalhes, hardening e atualização: [docs/INSTALACAO.md](docs/INSTALACAO.md).
+Details, hardening and upgrades: [docs/INSTALACAO.md](docs/INSTALACAO.md).
 
-## Primeiros passos: `sentinels setup`
-
-```bash
-sudo sentinels setup            # menu com setas: ↑ ↓ para navegar, Enter para escolher
-sudo sentinels setup ia         # direto numa seção: rapida, ia, notificacoes, integracoes, bancos, varredura, cofre, mcp
-```
-
-```
-┃ O que você quer configurar?
-┃ > ⚡ Configuração rápida        IA + um canal de alerta + teste, em 2 minutos
-┃   🤖 Inteligência artificial    provedor, modelo, chave e uso
-┃   🔔 Notificações               Telegram, Slack, Discord, e-mail, webhook
-┃   🛰  Integrações                Trivy, CrowdSec, Suricata, Falco
-┃   🐘 Bancos PostgreSQL          auditoria de Row-Level Security
-┃   🔍 Varredura e alertas        intervalo, severidade, URLs públicas
-┃   📓 Cofre Obsidian             notas de relatórios e incidentes
-┃   🔌 Servidor MCP               consultar o agente pelo Claude/ChatGPT
-┃   🩺 Verificar instalação (doctor)
-┃   💾 Salvar e sair
-```
-
-- **Modelos reais**: a lista vem da API do provedor (Claude, OpenAI, Gemini, OpenRouter, Ollama,
-  LM Studio) — digite `/` para filtrar.
-- **Telegram sem caçar o chat_id**: crie o bot no @BotFather, mande uma mensagem para ele e o
-  assistente encontra a conversa.
-- **Testa na hora**: IA, cada canal de alerta e a conexão com o banco.
-- **Segredos separados**: chaves e tokens vão para `sentinels.env` (0600), nunca para o YAML;
-  campos de senha não aparecem na tela. A versão anterior da configuração fica em `.bak`.
-- Sem terminal interativo (ou com `--plain`) vira perguntas simples, uma por linha.
-
-## Conversar pelo Telegram
-
-Com a conversa ativada (`sentinels setup` → Notificações → 💬), o bot responde `/status`, `/varrer` (varredura na hora, com o status ao terminar),
-`/achados`, `/eventos`, `/evento 12`, tem botões **✅ Ataque real · 🔕 Falso positivo ·
-🤖 Explicar** nos alertas e responde perguntas livres com a IA configurada — só no chat
-autorizado e sem alterar nada no servidor. Detalhes em [docs/TELEGRAM.md](docs/TELEGRAM.md).
-
-Para scripts: `sentinels config show`, `config get ai.model`, `config set alerts.min_severity critical`,
-`config set-secret SENTINELS_AI_KEY` (lê sem eco).
-
-## Uso
+## Getting started: `sentinels setup`
 
 ```bash
-sentinels scan            # varredura completa + relatório (Markdown e JSON)
-sentinels scan --offline  # sem baixar KEV/EPSS/feed de alertas
-sentinels scan --fail-on high   # código de saída 3 se houver achado Alto ou Crítico (CI)
-sentinels watch           # tempo real + varredura periódica, correlação e alertas
-sentinels watch --json    # alertas em JSON (um por linha)
-sentinels events --since 24h --min low   # histórico guardado na memória local
-sentinels notify-test     # envia um alerta de teste para todos os canais
-sentinels ai-test         # testa a IA configurada e lista as skills carregadas
-sentinels explain 42      # análise da IA de um evento
-sentinels mcp             # servidor MCP: pergunte ao Claude/ChatGPT sobre o servidor (docs/MCP.md)
-sentinels doctor          # verifica integrações instaladas
+sudo sentinels setup              # arrow-key menu: ↑ ↓ to move, Enter to select
+sudo sentinels setup ai           # jump to a section: quick, ai, notifications, integrations, databases, scan, vault, mcp
 ```
 
-### Ensinando o agente
+| Section | What you configure |
+|---------|--------------------|
+| `quick` | AI + one alert channel + a test, in two minutes |
+| `ai` | provider, model, API key and usage limits |
+| `notifications` | Telegram, Slack, Discord, e-mail, webhook — and Telegram chat |
+| `integrations` | Trivy, CrowdSec, Suricata, Falco |
+| `databases` | PostgreSQL Row-Level Security audit |
+| `scan` | interval, alert severity, public URLs |
+| `vault` | Obsidian-compatible notes |
+| `mcp` | query the agent from Claude/ChatGPT |
+
+- **Real model list**: fetched from the provider's API — type `/` to filter.
+- **No hunting for the Telegram chat_id**: create the bot with @BotFather, send it a message, and
+  setup finds the conversation.
+- **Tests on the spot**: AI, every alert channel, and the database connection.
+- **Secrets kept apart**: keys and tokens go to `sentinels.env` (0600), never to the YAML;
+  password fields are not echoed. The previous configuration is kept as `.bak`.
+- Without an interactive terminal (or with `--plain`) it falls back to simple line-by-line prompts.
+
+For scripts: `sentinels config show`, `config get ai.model`, `config set alerts.min_severity critical`,
+`config set-secret SENTINELS_AI_KEY` (reads without echo).
+
+## Chat with the agent on Telegram
+
+With chat enabled (`sentinels setup notifications` → 💬), the bot answers:
+
+| Command | Reply |
+|---------|-------|
+| `/status` | server summary: last scan, open critical findings, events in the last 24 h |
+| `/scan` | acknowledges right away, runs a full scan and sends the status when it finishes |
+| `/findings` · `/findings critical` · `/findings all` | open findings |
+| `/events` · `/events 72` | recent attacks and events, numbered |
+| `/event 12` | event details, AI analysis and buttons |
+| `/muted` | active false-positive rules |
+| `/help` | help |
+| any question | answered by your AI, e.g. *"what happened today?"* |
+
+Alerts carry **✅ Real attack · 🔕 False positive · 🤖 Explain** buttons. The bot only answers the
+configured chat, opens no port on the server (long polling), and never changes anything on the
+server. Details in [docs/TELEGRAM.md](docs/TELEGRAM.md).
+
+## Usage
 
 ```bash
-sentinels feedback 42 fp --note "monitoramento interno"   # falso positivo: silencia eventos iguais por 30 dias
-sentinels feedback 42 fp --scope rule                      # silencia a regra em qualquer alvo/IP
-sentinels feedback 57 confirmed                            # ataque real: o IP passa a pesar mais por 90 dias
-sentinels suppressions                                     # lista silenciamentos (remove: suppressions remove <id>)
-sentinels findings                                         # achados abertos, com a chave de cada um
-sentinels accept "container.root_user|db" --reason "imagem oficial troca de usuário no entrypoint"
-```
-
-Um silenciamento **nunca** cala uma tentativa de exploração contra um alvo com vulnerabilidade
-conhecida — essa rede de segurança não pode ser desligada por feedback.
-
-```bash
+sentinels scan                  # full scan + report (Markdown and JSON)
+sentinels scan --offline        # without downloading KEV/EPSS/advisory feed
+sentinels scan --fail-on high   # exit code 3 if there is a High or Critical finding (CI)
+sentinels watch                 # real time + periodic scans, correlation and alerts
+sentinels watch --json          # alerts as JSON lines
+sentinels events --since 24h --min low   # history kept in the local store
+sentinels notify-test           # send a test alert to every channel
+sentinels ai-test               # test the configured AI and list loaded skills
+sentinels explain 42            # AI analysis of an event
+sentinels mcp                   # MCP server: ask Claude/ChatGPT about the server (docs/MCP.md)
+sentinels doctor                # check installed integrations
 sentinels version
 ```
 
-## Conectando uma IA
+### Teaching the agent
+
+```bash
+sentinels feedback 42 fp --note "internal monitoring"   # false positive: mutes identical events for 30 days
+sentinels feedback 42 fp --scope rule                    # mute the rule on any target/IP
+sentinels feedback 57 confirmed                          # real attack: the source IP weighs more for 90 days
+sentinels suppressions                                   # list mutes (remove: suppressions remove <id>)
+sentinels findings                                       # open findings, with each one's key
+sentinels accept "container.root_user|db" --reason "official image drops privileges in its entrypoint"
+```
+
+A mute **never** silences an exploitation attempt against a target with a known vulnerability —
+that safety net cannot be switched off by feedback.
+
+## Connecting an AI
 
 ```yaml
 ai:
@@ -174,58 +181,59 @@ ai:
   api_key_env: SENTINELS_AI_KEY
 ```
 
-| Provedor | `provider` | Chave |
-|----------|-----------|-------|
-| Claude | `anthropic` | sim |
-| GPT | `openai` | sim |
-| Gemini | `gemini` | sim |
-| OpenRouter (qualquer modelo) | `openrouter` | sim |
-| Ollama / LM Studio (local, nada sai do servidor) | `ollama` / `lmstudio` | não |
-| Groq, Together, vLLM… | `openai-compatible` + `base_url` | conforme o serviço |
+| Provider | `provider` | API key |
+|----------|-----------|---------|
+| Claude | `anthropic` | yes |
+| GPT | `openai` | yes |
+| Gemini | `gemini` | yes |
+| OpenRouter (any model) | `openrouter` | yes |
+| Ollama / LM Studio (local — nothing leaves the server) | `ollama` / `lmstudio` | no |
+| Groq, Together, vLLM… | `openai-compatible` + `base_url` | depends on the service |
 
-O que a IA faz:
-- **Resumo executivo** no topo de cada relatório, com as 5 prioridades.
-- **Análise dos alertas graves** (padrão: Crítico), enviada como segunda mensagem — o alerta
-  original nunca espera pela IA. Teto de chamadas por hora para controlar custo.
-- `sentinels explain <evento>` — análise sob demanda de qualquer evento guardado.
+What the AI does:
+- **Executive summary** at the top of each report, with the top 5 priorities.
+- **Analysis of severe alerts** (default: Critical), sent as a second message — the original
+  alert never waits for the AI. Hourly call cap to control cost.
+- `sentinels explain <event>` and the Telegram 🤖 button — on-demand analysis of any stored event.
 
-Antes de sair do servidor, o texto passa por redação: senhas, tokens, chaves (AWS, Stripe,
-GitHub, Google, Telegram), JWT e CPF são removidos; IPs e e-mails viram pseudônimos (`[IP-1]`).
-A chave é lida de variável de ambiente, nunca do arquivo de configuração.
+Before anything leaves the server it is redacted: passwords, tokens, keys (AWS, Stripe, GitHub,
+Google, Telegram), JWTs and CPFs are removed; IPs and e-mails become pseudonyms (`[IP-1]`).
+The API key is read from an environment variable, never from the configuration file.
 
-## Cofre Obsidian
+## Obsidian vault
 
-Com `vault.enabled: true`, o agente mantém uma pasta de notas Markdown: relatórios, um
-incidente por alerta (com a análise da IA), uma nota por ativo e por técnica ATT&CK, todas
-ligadas por `[[links]]` — o grafo do Obsidian mostra qual ataque atingiu qual aplicação.
-O que você escrever abaixo de "Notas do administrador" é preservado. Texto vindo dos logs fica
-sempre em bloco de código, para que nada injetado por um atacante seja renderizado.
+With `vault.enabled: true` the agent keeps a folder of Markdown notes: reports, one incident per
+alert (with the AI analysis), one note per asset and per ATT&CK technique, all linked with
+`[[links]]` — Obsidian's graph shows which attack hit which app. Whatever you write below the
+administrator-notes marker is preserved. Text coming from logs always sits in code blocks, so
+nothing injected by an attacker is rendered.
 
-## Documentação
+## Documentation (Portuguese)
 
-- [Instalação](docs/INSTALACAO.md)
-- [Arquitetura](docs/ARQUITETURA.md)
-- [Política de segurança](SECURITY.md)
-- [Integrações de tempo real (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
-- [Escrevendo skills](docs/SKILLS.md)
-- [Servidor MCP (Claude Code, Claude Desktop, ChatGPT…)](docs/MCP.md)
-- [Conversar pelo Telegram](docs/TELEGRAM.md)
+- [Installation](docs/INSTALACAO.md)
+- [Architecture](docs/ARQUITETURA.md)
+- [Security policy](SECURITY.md)
+- [Real-time integrations (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
+- [Writing skills](docs/SKILLS.md)
+- [MCP server (Claude Code, Claude Desktop, ChatGPT…)](docs/MCP.md)
+- [Telegram chat](docs/TELEGRAM.md)
 
 ## Roadmap
 
-- [x] 1 — Base do projeto e documentação
-- [x] 2 — Varredura (containers, stack, exposição, RLS, CVEs via Trivy) com CIS, CWE, CISA KEV, EPSS e alertas emergenciais
-- [x] 3 — Tempo real: CrowdSec, Suricata e Falco, alertas classificados com MITRE ATT&CK, memória local em SQLite
-- [x] 4 — Alertas (Telegram, Slack, Discord, e-mail, webhook) + feedback do admin (falso positivo / confirmado)
-- [x] 5 — Provedores de IA + skills de segurança (`SKILL.md`) + cofre compatível com Obsidian
-- [x] 6 — Instalador, serviço systemd, imagem Docker e assinatura do feed de alertas
-- [x] 7 — Servidor MCP (consulta pela IA, somente leitura) + rascunho de alertas emergenciais pela IA
+- [x] 1 — Project foundation and docs
+- [x] 2 — Scanning (containers, stack, exposure, RLS, CVEs via Trivy) with CIS, CWE, CISA KEV, EPSS and emergency advisories
+- [x] 3 — Real time: CrowdSec, Suricata and Falco, alerts classified with MITRE ATT&CK, local SQLite store
+- [x] 4 — Alerts (Telegram, Slack, Discord, e-mail, webhook) + admin feedback (false positive / confirmed)
+- [x] 5 — AI providers + security skills (`SKILL.md`) + Obsidian-compatible vault
+- [x] 6 — Installer, systemd service, Docker image and signed advisory feed
+- [x] 7 — Read-only MCP server + AI-drafted emergency advisories
+- [x] Setup wizard, leaked-key detection, Portainer/Swarm stacks, Telegram chat
 
-Próximos: teste em VPS real, botões de feedback no Telegram, linha de base de tráfego normal,
-detecção de versão de mais runtimes (Node.js, Java, Python) para os alertas emergenciais.
+Next: English interface, baseline of normal traffic, version detection for more runtimes
+(Node.js, Java, Python) in emergency advisories.
 
-## Licença
+## License
 
-[Apache-2.0](LICENSE) — uso livre, inclusive comercial.
+[Apache-2.0](LICENSE) — free to use, including commercially.
 
-Feito por [Smart Code Tecnologia](https://smartcodetecnologia.com.br).
+Made by [Smart Code Tecnologia](https://smartcodetecnologia.com.br).

@@ -67,13 +67,13 @@ func checkWritable(dir string) error {
 }
 
 var sections = []struct{ key, label, desc string }{
-	{"rapida", "⚡ Configuração rápida", "IA + um canal de alerta + teste, em 2 minutos"},
-	{"ia", "🤖 Inteligência artificial", "provedor, modelo, chave e uso"},
-	{"notificacoes", "🔔 Notificações", "Telegram, Slack, Discord, e-mail, webhook"},
-	{"integracoes", "🛰  Integrações", "Trivy, CrowdSec, Suricata, Falco"},
-	{"bancos", "🐘 Bancos PostgreSQL", "auditoria de Row-Level Security"},
-	{"varredura", "🔍 Varredura e alertas", "intervalo, severidade, URLs públicas"},
-	{"cofre", "📓 Cofre Obsidian", "notas de relatórios e incidentes"},
+	{"quick", "⚡ Configuração rápida", "IA + um canal de alerta + teste, em 2 minutos"},
+	{"ai", "🤖 Inteligência artificial", "provedor, modelo, chave e uso"},
+	{"notifications", "🔔 Notificações", "Telegram, Slack, Discord, e-mail, webhook"},
+	{"integrations", "🛰  Integrações", "Trivy, CrowdSec, Suricata, Falco"},
+	{"databases", "🐘 Bancos PostgreSQL", "auditoria de Row-Level Security"},
+	{"scan", "🔍 Varredura e alertas", "intervalo, severidade, URLs públicas"},
+	{"vault", "📓 Cofre Obsidian", "notas de relatórios e incidentes"},
 	{"mcp", "🔌 Servidor MCP", "consultar o agente pelo Claude/ChatGPT"},
 }
 
@@ -142,21 +142,30 @@ func (s *Session) Run(ctx context.Context, section string) error {
 	}
 }
 
+// sectionAliases keeps the Portuguese names of earlier versions working.
+var sectionAliases = map[string]string{
+	"rapida": "quick", "ia": "ai", "notificacoes": "notifications", "integracoes": "integrations",
+	"bancos": "databases", "varredura": "scan", "cofre": "vault",
+}
+
 func (s *Session) runSection(ctx context.Context, key string) error {
+	if k, ok := sectionAliases[key]; ok {
+		key = k
+	}
 	switch key {
-	case "rapida":
+	case "quick":
 		return s.quick(ctx)
-	case "ia":
+	case "ai":
 		return s.sectionAI(ctx)
-	case "notificacoes":
+	case "notifications":
 		return s.sectionNotify(ctx)
-	case "integracoes":
+	case "integrations":
 		return s.sectionIntegrations()
-	case "bancos":
+	case "databases":
 		return s.sectionDatabases(ctx)
-	case "varredura":
+	case "scan":
 		return s.sectionScan()
-	case "cofre":
+	case "vault":
 		return s.sectionVault()
 	case "mcp":
 		return s.sectionMCP()

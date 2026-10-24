@@ -21,11 +21,12 @@ var icon = map[finding.Severity]string{
 const help = `🛡 Sentinels — comandos
 
 /status — resumo do servidor
-/varrer — varredura completa agora; mando o status quando terminar
-/achados — problemas abertos (ou: /achados critico | alto | medio | todos)
-/eventos — ataques e eventos das últimas 24h (ou: /eventos 72)
-/evento 12 — detalhe de um evento, com botões
-/silenciados — regras de falso positivo ativas
+/scan — varredura completa agora; mando o status quando terminar
+/findings — problemas abertos (ou: /findings critical | high | medium | all)
+/events — ataques e eventos das últimas 24h (ou: /events 72)
+/event 12 — detalhe de um evento, com botões
+/muted — regras de falso positivo ativas
+/help — esta ajuda
 
 Nos alertas: ✅ Ataque real · 🔕 Falso positivo · 🤖 Explicar.
 Ou escreva uma pergunta, ex.: "o que aconteceu hoje?" (usa a IA configurada).
@@ -47,22 +48,22 @@ func (b *Bot) onMessage(ctx context.Context, m *message) reply {
 			return reply{text: "⏳ Ainda estou fazendo a primeira varredura (inclui as CVEs das imagens). Mando o status assim que terminar."}
 		}
 		return b.status(ctx)
-	case "/varrer", "/scan":
+	case "/scan", "/varrer":
 		return b.requestScan(m.Chat.ID)
-	case "/achados":
+	case "/findings", "/achados":
 		return b.findings(args)
-	case "/eventos":
+	case "/events", "/eventos":
 		return b.events(ctx, args)
-	case "/evento":
+	case "/event", "/evento":
 		if len(args) == 0 {
-			return reply{text: "Use: /evento 12 (os números aparecem em /eventos e nos alertas)"}
+			return reply{text: "Use: /event 12 (os números aparecem em /events e nos alertas)"}
 		}
 		id, err := strconv.ParseInt(strings.TrimPrefix(args[0], "#"), 10, 64)
 		if err != nil {
 			return reply{text: "Número de evento inválido."}
 		}
 		return b.event(ctx, id)
-	case "/silenciados":
+	case "/muted", "/silenciados":
 		return b.suppressions(ctx)
 	default:
 		return reply{text: help}
@@ -115,7 +116,7 @@ func (b *Bot) status(ctx context.Context) reply {
 					s.WriteString("\nCríticos:\n")
 				}
 				if n++; n > 6 {
-					fmt.Fprintf(&s, "… e mais %d (veja /achados critico)\n", c[finding.Critical]-6)
+					fmt.Fprintf(&s, "… e mais %d (veja /findings critical)\n", c[finding.Critical]-6)
 					break
 				}
 				fmt.Fprintf(&s, "• %s — %s\n", f.Title, f.Target)
@@ -130,7 +131,7 @@ func (b *Bot) status(ctx context.Context) reply {
 				crit++
 			}
 		}
-		fmt.Fprintf(&s, "\nÚltimas 24h: %d evento(s), %d crítico(s) — /eventos\n", len(evs), crit)
+		fmt.Fprintf(&s, "\nÚltimas 24h: %d evento(s), %d crítico(s) — /events\n", len(evs), crit)
 	}
 	return reply{text: secretsOnly(s.String())}
 }
@@ -138,7 +139,7 @@ func (b *Bot) status(ctx context.Context) reply {
 var levelArg = map[string]finding.Severity{
 	"critico": finding.Critical, "crítico": finding.Critical, "critical": finding.Critical,
 	"alto": finding.High, "high": finding.High, "medio": finding.Medium, "médio": finding.Medium,
-	"medium": finding.Medium, "baixo": finding.Low, "low": finding.Low, "todos": finding.Info,
+	"medium": finding.Medium, "baixo": finding.Low, "low": finding.Low, "todos": finding.Info, "all": finding.Info,
 }
 
 func (b *Bot) findings(args []string) reply {
@@ -211,7 +212,7 @@ func (b *Bot) events(ctx context.Context, args []string) reply {
 		}
 		fmt.Fprintf(&s, "#%d %s %s — %s · %s · %dx%s\n", se.ID, icon[e.Severity], clip(tech, 40), orDash(e.Target), ago(se.LastSeen), se.Count, mark)
 	}
-	s.WriteString("\nDetalhes: /evento <número>")
+	s.WriteString("\nDetalhes: /event <número>")
 	return reply{text: secretsOnly(s.String())}
 }
 
@@ -246,7 +247,7 @@ func (b *Bot) event(ctx context.Context, id int64) reply {
 	return reply{text: secretsOnly(s.String()), buttons: buttons}
 }
 
-// FeedbackButtons are attached to alerts and to /evento replies.
+// FeedbackButtons are attached to alerts and to /event replies.
 func FeedbackButtons(eventID int64, explain bool) []Button {
 	id := strconv.FormatInt(eventID, 10)
 	bs := []Button{{"✅ Ataque real", "ok:" + id}, {"🔕 Falso positivo", "fp:" + id}}
@@ -342,13 +343,13 @@ func (b *Bot) explain(ctx context.Context, chatID, id int64) {
 // agent knows.
 func (b *Bot) ask(ctx context.Context, chatID int64, question string) reply {
 	if b.Analyst == nil {
-		return reply{text: "A IA não está configurada, então só entendo comandos. Veja /ajuda — ou configure a IA no servidor: sentinels setup → IA."}
+		return reply{text: "A IA não está configurada, então só entendo comandos. Veja /help — ou configure a IA no servidor: sentinels setup → IA."}
 	}
 	if len([]rune(question)) > 1000 {
 		return reply{text: "Pergunta longa demais (máx. 1000 caracteres)."}
 	}
 	if !b.takeAI() {
-		return reply{text: "Limite de perguntas à IA por hora atingido (ai.max_calls_per_hour). Os comandos continuam funcionando: /ajuda"}
+		return reply{text: "Limite de perguntas à IA por hora atingido (ai.max_calls_per_hour). Os comandos continuam funcionando: /help"}
 	}
 	b.send(ctx, chatID, "🤔 Analisando sua pergunta com os dados do servidor… respondo em instantes.", nil)
 	b.typing(ctx, chatID)

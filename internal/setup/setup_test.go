@@ -38,7 +38,7 @@ func reload(t *testing.T, s *Session) (config.Config, *config.EnvFile) {
 
 func TestScanSection(t *testing.T) {
 	s, _ := session(t, "2", "1", "3", "https://exemplo.com.br", "", "30", "y")
-	if err := s.Run(context.Background(), "varredura"); err != nil {
+	if err := s.Run(context.Background(), "scan"); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := reload(t, s)
@@ -63,7 +63,7 @@ func TestAISectionWithLocalServer(t *testing.T) {
 	// provider 6 = LM Studio; base URL; model 2 of the list (sorted: llama-x, qwen…);
 	// severity 2 (high); 15 calls/hour; summary yes; keep IPs no; test yes; save yes.
 	s, out := session(t, "6", srv.URL+"/v1", "2", "2", "15", "y", "n", "y", "y")
-	if err := s.Run(context.Background(), "ia"); err != nil {
+	if err := s.Run(context.Background(), "ai"); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := reload(t, s)
@@ -123,5 +123,15 @@ func TestFreeEnvNameAndSuggestion(t *testing.T) {
 	}
 	if got := suggestedModel("lmstudio", []string{"a", "b"}); got != "a" {
 		t.Errorf("sugestão sem preferência = %s", got)
+	}
+}
+
+func TestPortugueseSectionAliasStillWorks(t *testing.T) {
+	s, _ := session(t, "2", "1", "3", "", "", "30", "y")
+	if err := s.Run(context.Background(), "varredura"); err != nil {
+		t.Fatalf("alias em português quebrou: %v", err)
+	}
+	if err := s.Run(context.Background(), "inexistente"); err == nil || !strings.Contains(err.Error(), "quick") {
+		t.Errorf("seção desconhecida deveria listar os nomes em inglês: %v", err)
 	}
 }

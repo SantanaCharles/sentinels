@@ -161,7 +161,7 @@ func TestBotCommandsAndAuthorization(t *testing.T) {
 	api.queue = []map[string]any{
 		msg(101, 999, "/status"), // stranger
 		msg(102, 555, "/status"),
-		msg(103, 555, "/evento 1"),
+		msg(103, 555, "/event 1"),
 		callback(104, 999, "fp:1"), // stranger pressing a forwarded button
 		callback(105, 555, "fp:1"),
 	}
@@ -275,7 +275,7 @@ func TestVarrerAcksAndReportsWhenDone(t *testing.T) {
 	bot, api, _, _ := setup(t)
 	sc := &fakeScanner{}
 	bot.Scanner = sc
-	api.queue = []map[string]any{msg(20, 555, "/varrer"), msg(21, 555, "/varrer")}
+	api.queue = []map[string]any{msg(20, 555, "/scan"), msg(21, 555, "/varrer")}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

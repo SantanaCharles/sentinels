@@ -138,7 +138,7 @@ func (a *Analyst) ExplainAlert(ctx context.Context, al watch.Alert) (string, err
 func (a *Analyst) Answer(ctx context.Context, question, snapshot string, tags []string) (string, error) {
 	task := `Responda à pergunta do administrador sobre este servidor, em até 200 palavras, em texto
 simples (sem tabelas e sem títulos com #). Use só os dados abaixo; se eles não bastarem, diga o
-que falta e qual comando do Sentinels ajudaria (/status, /achados, /eventos, /evento N).
+que falta e qual comando do Sentinels ajudaria (/status, /findings, /events, /event N).
 Pergunta: ` + strings.ReplaceAll(question, "\n", " ")
 	return a.ask(ctx, append(tags, "task:chat"), task, snapshot, 900)
 }

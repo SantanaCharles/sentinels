@@ -8,24 +8,27 @@ Além de receber alertas, você pode consultar o agente e responder aos alertas 
 - canal Telegram novo: responda "Sim" em *"Conversar com o agente por este chat?"*;
 - canal que já existe: escolha **💬 ativar conversa**.
 
-Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, mande `/ajuda`.
+Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, mande `/help`.
 
 ## O que dá para fazer
 
 | No chat | Resposta |
 |---------|----------|
 | `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
-| `/varrer` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
-| `/achados` · `/achados critico` · `/achados todos` | problemas abertos |
-| `/eventos` · `/eventos 72` | ataques e eventos recentes, numerados |
-| `/evento 12` | detalhe do evento, análise da IA e botões |
-| `/silenciados` | regras de falso positivo ativas |
+| `/scan` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
+| `/findings` · `/findings critical` · `/findings all` | problemas abertos |
+| `/events` · `/events 72` | ataques e eventos recentes, numerados |
+| `/event 12` | detalhe do evento, análise da IA e botões |
+| `/muted` | regras de falso positivo ativas |
 | Botões nos alertas | **✅ Ataque real** · **🔕 Falso positivo** · **🤖 Explicar** |
 | Qualquer pergunta | respondida pela IA configurada, ex.: *"o que aconteceu hoje?"*, *"o PHP da loja está vulnerável?"* |
 
 Tudo que demora responde na hora com uma confirmação — "🤔 Analisando sua pergunta…",
 "🤖 Analisando o evento #12…", "🔎 Iniciando uma varredura…" — e a resposta completa chega em
 seguida.
+
+Os nomes em português das versões anteriores (`/varrer`, `/achados`, `/eventos`, `/evento`,
+`/silenciados`, `/ajuda`) continuam funcionando.
 
 Os botões fazem o mesmo que `sentinels feedback` no terminal: falso positivo silencia eventos
 iguais por 30 dias (exceto exploração contra alvo vulnerável); ataque real faz o IP pesar mais
