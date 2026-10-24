@@ -261,6 +261,7 @@ func (b *Bot) registerCommands(ctx context.Context) {
 	cmds := []map[string]string{
 		{"command": "status", "description": "Server summary"},
 		{"command": "scan", "description": "Full scan now (status when it finishes)"},
+		{"command": "inventory", "description": "What is running: containers, stack, ports"},
 		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
 		{"command": "events", "description": "Recent attacks and events (e.g. /events 48)"},
 		{"command": "event", "description": "Event details (e.g. /event 12)"},

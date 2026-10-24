@@ -16,6 +16,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/ai"
 	"github.com/SantanaCharles/sentinels/internal/event"
 	"github.com/SantanaCharles/sentinels/internal/finding"
+	"github.com/SantanaCharles/sentinels/internal/fingerprint"
 	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
 	"github.com/SantanaCharles/sentinels/internal/watch"
@@ -323,5 +324,33 @@ func TestWebhookConflictIsExplained(t *testing.T) {
 	_, err := b.getUpdates(context.Background(), 0)
 	if err == nil || !strings.Contains(err.Error(), "webhook ativo") || !strings.Contains(err.Error(), "n8n") {
 		t.Errorf("erro de webhook não explicado: %v", err)
+	}
+}
+
+func TestInventory(t *testing.T) {
+	bot, _, _, _ := setup(t)
+	res := scan.Result{Host: "vps-01", Started: time.Now(),
+		Assets: []scan.Asset{
+			{Name: "loja", Image: "php:8.3.10-apache", Stack: fingerprint.Stack{Kind: fingerprint.KindApp, Components: []string{"PHP"}}, PublicPorts: []string{"8080→80/tcp"}},
+			{Name: "n8n", Image: "n8nio/n8n:1.90", Stack: fingerprint.Stack{Kind: fingerprint.KindAutomation, Components: []string{"n8n"}}},
+		},
+		Findings: []finding.Finding{
+			{ID: "advisory.php2shell-2026-10", Target: "loja", Severity: finding.Critical, Title: "PHP2Shell"},
+			{ID: "cve.CVE-1", Target: "loja, n8n", Severity: finding.High, Title: "CVE-1"},
+			{ID: "host.public_listener", Target: "host:5432", Severity: finding.High, Title: "PostgreSQL escutando em 0.0.0.0:5432"},
+		}}
+	b, _ := json.Marshal(res)
+	os.WriteFile(filepath.Join(bot.ReportDir, "report-20261024-020000.json"), b, 0o640)
+
+	all := bot.inventory(nil).text
+	for _, want := range []string{"2 container(s)", "🐳 loja", "php:8.3.10-apache", "PHP (app)", "8080→80/tcp",
+		"🔴 1 · 🟠 1", "🐳 n8n", "🔴 0 · 🟠 1", "PostgreSQL escutando em 0.0.0.0:5432", "pacotes instalados"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("inventário sem %q:\n%s", want, all)
+		}
+	}
+	php := bot.inventory([]string{"php"}).text
+	if !strings.Contains(php, "1 com \"php\"") || strings.Contains(php, "🐳 n8n") {
+		t.Errorf("filtro:\n%s", php)
 	}
 }

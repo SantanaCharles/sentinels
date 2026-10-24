@@ -15,6 +15,7 @@ Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, ma
 | No chat | Resposta |
 |---------|----------|
 | `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
+| `/inventory` · `/inventory php` | o que está rodando: containers, imagem, stack, portas públicas e problemas de cada um (pacotes instalados direto no sistema não entram) |
 | `/scan` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
 | `/findings` · `/findings critical` · `/findings all` | problemas abertos |
 | `/events` · `/events 72` | ataques e eventos recentes, numerados |

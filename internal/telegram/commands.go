@@ -22,6 +22,7 @@ const help = `🛡 Sentinels — comandos
 
 /status — resumo do servidor
 /scan — varredura completa agora; mando o status quando terminar
+/inventory — o que está rodando: containers, stack, portas (ou: /inventory php)
 /findings — problemas abertos (ou: /findings critical | high | medium | all)
 /events — ataques e eventos das últimas 24h (ou: /events 72)
 /event 12 — detalhe de um evento, com botões
@@ -65,6 +66,8 @@ func (b *Bot) onMessage(ctx context.Context, m *message) reply {
 		return b.event(ctx, id)
 	case "/muted", "/silenciados":
 		return b.suppressions(ctx)
+	case "/inventory", "/inventario", "/inventário":
+		return b.inventory(args)
 	default:
 		return reply{text: help}
 	}
@@ -255,6 +258,83 @@ func FeedbackButtons(eventID int64, explain bool) []Button {
 		bs = append(bs, Button{"🤖 Explicar", "ex:" + id})
 	}
 	return bs
+}
+
+// inventory lists what the last scan found: containers with image, stack,
+// public ports and open findings, plus services listening on the host.
+func (b *Bot) inventory(args []string) reply {
+	r, err := scan.Latest(b.ReportDir)
+	if err != nil {
+		return reply{text: err.Error()}
+	}
+	filter := ""
+	if len(args) > 0 {
+		filter = strings.ToLower(args[0])
+	}
+	type counts struct{ crit, high int }
+	byTarget := map[string]*counts{}
+	var hostLines []string
+	for _, f := range r.Findings {
+		if f.Accepted != "" || f.Severity < finding.High {
+			continue
+		}
+		if strings.HasPrefix(f.Target, "host:") {
+			hostLines = append(hostLines, fmt.Sprintf("%s %s", icon[f.Severity], f.Title))
+			continue
+		}
+		for _, t := range strings.Split(f.Target, ", ") {
+			c := byTarget[t]
+			if c == nil {
+				c = &counts{}
+				byTarget[t] = c
+			}
+			if f.Severity == finding.Critical {
+				c.crit++
+			} else {
+				c.high++
+			}
+		}
+	}
+
+	var s strings.Builder
+	shown := 0
+	for _, a := range r.Assets {
+		line := strings.ToLower(a.Name + " " + a.Image + " " + strings.Join(a.Stack.Components, " "))
+		if filter != "" && !strings.Contains(line, filter) {
+			continue
+		}
+		shown++
+		fmt.Fprintf(&s, "🐳 %s\n   imagem: %s\n", a.Name, a.Image)
+		if len(a.Stack.Components) > 0 {
+			fmt.Fprintf(&s, "   stack: %s (%s)\n", strings.Join(a.Stack.Components, ", "), a.Stack.Kind)
+		}
+		if len(a.PublicPorts) > 0 {
+			fmt.Fprintf(&s, "   🌐 portas públicas: %s\n", strings.Join(a.PublicPorts, ", "))
+		}
+		if c := byTarget[a.Name]; c != nil {
+			fmt.Fprintf(&s, "   problemas: 🔴 %d · 🟠 %d — /findings\n", c.crit, c.high)
+		} else {
+			s.WriteString("   ✅ nenhum problema alto ou crítico\n")
+		}
+		s.WriteString("\n")
+	}
+	head := fmt.Sprintf("📦 Inventário — %s (varredura %s)\n%d container(s)", b.Host, ago(r.Started), len(r.Assets))
+	if filter != "" {
+		head += fmt.Sprintf(", %d com %q", shown, filter)
+	}
+	head += "\n\n"
+	if shown == 0 {
+		s.WriteString("Nenhum container encontrado.\n\n")
+	}
+	if len(hostLines) > 0 {
+		s.WriteString("🖥 Serviços do host expostos:\n")
+		for _, l := range hostLines {
+			s.WriteString("• " + l + "\n")
+		}
+		s.WriteString("\n")
+	}
+	s.WriteString("Inclui o que roda em containers Docker; pacotes instalados direto no sistema não aparecem.")
+	return reply{text: secretsOnly(head + s.String())}
 }
 
 func (b *Bot) suppressions(ctx context.Context) reply {
