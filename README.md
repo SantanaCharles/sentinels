@@ -130,6 +130,7 @@ With chat enabled (`sentinels setup notifications` → 💬), the bot answers:
 | `/status` | server summary: last scan, open critical findings, events in the last 24 h |
 | `/scan` | acknowledges right away, runs a full scan and sends the status when it finishes |
 | `/inventory` · `/inventory php` | what is running: containers, image, stack, public ports and open problems |
+| `/doctor` | what Sentinels has active (Docker, Trivy, CrowdSec, Suricata, Falco, AI, channels) and the exact SSH commands to install what is missing |
 | `/findings` · `/findings critical` · `/findings all` | open findings |
 | `/events` · `/events 72` | recent attacks and events, numbered |
 | `/event 12` | event details, AI analysis and buttons |

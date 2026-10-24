@@ -15,6 +15,7 @@ Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, ma
 | No chat | Resposta |
 |---------|----------|
 | `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
+| `/doctor` | o que o Sentinels tem ativo (Docker, Trivy, CrowdSec, Suricata, Falco, IA, canais) e os comandos exatos para instalar o que falta — você roda no SSH |
 | `/inventory` · `/inventory php` | o que está rodando: containers, imagem, stack, portas públicas e problemas de cada um (pacotes instalados direto no sistema não entram) |
 | `/scan` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
 | `/findings` · `/findings critical` · `/findings all` | problemas abertos |
@@ -54,3 +55,10 @@ O Telegram permite **um único leitor por bot**. Com mais de um agente (vários 
 Swarm com vários nós), crie **um bot por servidor** para a conversa — o mesmo grupo pode receber
 os alertas de todos. Se dois agentes lerem o mesmo bot, o log mostra
 *"outro processo está lendo este bot"*.
+
+## Por que o bot não instala nada
+
+Instalar CrowdSec, Suricata ou Falco exige root no servidor. Se o bot pudesse fazer isso, quem
+tomasse sua conta do Telegram — ou conseguisse injetar texto que a IA obedecesse — ganharia root na
+VPS com uma mensagem. Por isso o `/doctor` mostra o que falta e os comandos prontos, e quem executa
+é você, pelo SSH. O agente continua somente leitura.

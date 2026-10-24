@@ -126,7 +126,9 @@ func runWatch(ctx context.Context, args []string) int {
 
 	// Telegram bots start after the watcher exists: "/varrer" requests a scan
 	// and the bot reports back through the AfterScan hook.
+	health := healthFunc(cfg, sources, chans, ex, time.Now())
 	for _, bot := range buildBots(cfg, st, ex, host) {
+		bot.Health = health
 		if w.Scan != nil {
 			bot.Scanner = w
 			w.AfterScan = append(w.AfterScan, bot.ScanDone)

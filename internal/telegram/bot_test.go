@@ -354,3 +354,27 @@ func TestInventory(t *testing.T) {
 		t.Errorf("filtro:\n%s", php)
 	}
 }
+
+func TestDoctorShowsMissingWithInstallSteps(t *testing.T) {
+	bot, _, _, _ := setup(t)
+	bot.Health = func(context.Context) []Check {
+		return []Check{
+			{Name: "Docker", OK: true, Detail: "lendo containers via tcp://127.0.0.1:2375"},
+			{Name: "CrowdSec", OK: false, Detail: "sem detecção", Fix: "curl -s https://install.crowdsec.net | sh\ncscli bouncers add sentinels"},
+		}
+	}
+	text := bot.doctor(context.Background()).text
+	for _, want := range []string{"✅ Docker", "❌ CrowdSec", "   cscli bouncers add sentinels", "Faltando (1)", "não instala nada"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("/doctor sem %q:\n%s", want, text)
+		}
+	}
+	bot.Health = func(context.Context) []Check { return []Check{{Name: "Docker", OK: true, Detail: "ok"}} }
+	if text := bot.doctor(context.Background()).text; !strings.Contains(text, "Tudo ativo") {
+		t.Errorf("tudo ok:\n%s", text)
+	}
+	bot.Health = nil
+	if text := bot.doctor(context.Background()).text; !strings.Contains(text, "indisponível") {
+		t.Errorf("sem Health: %s", text)
+	}
+}

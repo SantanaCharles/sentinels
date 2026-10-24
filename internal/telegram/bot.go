@@ -35,7 +35,8 @@ type Bot struct {
 	Host         string
 	Analyst      *ai.Analyst // nil: free-form questions are disabled
 	MaxAIPerHour int
-	Scanner      Scanner // nil: /scan is unavailable
+	Scanner      Scanner    // nil: /scan is unavailable
+	Health       HealthFunc // nil: /doctor is unavailable
 	Log          func(format string, args ...any)
 
 	client   *http.Client
@@ -262,6 +263,7 @@ func (b *Bot) registerCommands(ctx context.Context) {
 		{"command": "status", "description": "Server summary"},
 		{"command": "scan", "description": "Full scan now (status when it finishes)"},
 		{"command": "inventory", "description": "What is running: containers, stack, ports"},
+		{"command": "doctor", "description": "What Sentinels has active and what is missing"},
 		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
 		{"command": "events", "description": "Recent attacks and events (e.g. /events 48)"},
 		{"command": "event", "description": "Event details (e.g. /event 12)"},
