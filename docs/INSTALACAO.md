@@ -22,6 +22,13 @@ docker compose logs -f sentinels
 - `network_mode: host` é necessário para testar as portas publicadas em `127.0.0.1`, ver serviços
   escutando no host e receber o Falco em `127.0.0.1:2801`.
 - Comandos: `docker compose exec sentinels sentinels <comando> -config /etc/sentinels/sentinels.yaml`.
+- Assistente de configuração (grava `sentinels.yaml` e `sentinels.env` nesta pasta):
+
+  ```bash
+  docker run --rm -it --network host --user "$(id -u):$(id -g)" -v "$PWD:/work" \
+    ghcr.io/santanacharles/sentinels:latest setup -config /work/sentinels.yaml -env /work/sentinels.env
+  docker compose restart sentinels
+  ```
 
 ## Opção B — Binário + systemd
 
@@ -35,6 +42,11 @@ sudo -u sentinels sentinels doctor -config /etc/sentinels/sentinels.yaml
 sudo systemctl enable --now sentinels
 journalctl -u sentinels -f
 ```
+
+No final, o instalador oferece abrir o **assistente** (`sentinels setup`) — funciona mesmo com
+`curl … | sudo sh`, porque lê do terminal. Pule com `--no-setup`. Em consoles web de alguns
+provedores o menu pode levar ~5 s para abrir (o console não responde a consultas do terminal);
+`sentinels setup --plain` usa perguntas simples.
 
 O instalador:
 - confere o **SHA-256** de cada arquivo contra o `checksums.txt` da release e não instala nada se

@@ -233,7 +233,7 @@ func containsEq(s string) bool {
 // takesValue lists the non-boolean flags of feedback/accept.
 func takesValue(flag string) bool {
 	switch flag {
-	case "-scope", "--scope", "-days", "--days", "-note", "--note", "-reason", "--reason", "-config", "--config":
+	case "-scope", "--scope", "-days", "--days", "-note", "--note", "-reason", "--reason", "-config", "--config", "-env", "--env":
 		return true
 	}
 	return false

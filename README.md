@@ -84,6 +84,39 @@ sudo systemctl enable --now sentinels
 
 Detalhes, hardening e atualização: [docs/INSTALACAO.md](docs/INSTALACAO.md).
 
+## Primeiros passos: `sentinels setup`
+
+```bash
+sudo sentinels setup            # menu com setas: ↑ ↓ para navegar, Enter para escolher
+sudo sentinels setup ia         # direto numa seção: rapida, ia, notificacoes, integracoes, bancos, varredura, cofre, mcp
+```
+
+```
+┃ O que você quer configurar?
+┃ > ⚡ Configuração rápida        IA + um canal de alerta + teste, em 2 minutos
+┃   🤖 Inteligência artificial    provedor, modelo, chave e uso
+┃   🔔 Notificações               Telegram, Slack, Discord, e-mail, webhook
+┃   🛰  Integrações                Trivy, CrowdSec, Suricata, Falco
+┃   🐘 Bancos PostgreSQL          auditoria de Row-Level Security
+┃   🔍 Varredura e alertas        intervalo, severidade, URLs públicas
+┃   📓 Cofre Obsidian             notas de relatórios e incidentes
+┃   🔌 Servidor MCP               consultar o agente pelo Claude/ChatGPT
+┃   🩺 Verificar instalação (doctor)
+┃   💾 Salvar e sair
+```
+
+- **Modelos reais**: a lista vem da API do provedor (Claude, OpenAI, Gemini, OpenRouter, Ollama,
+  LM Studio) — digite `/` para filtrar.
+- **Telegram sem caçar o chat_id**: crie o bot no @BotFather, mande uma mensagem para ele e o
+  assistente encontra a conversa.
+- **Testa na hora**: IA, cada canal de alerta e a conexão com o banco.
+- **Segredos separados**: chaves e tokens vão para `sentinels.env` (0600), nunca para o YAML;
+  campos de senha não aparecem na tela. A versão anterior da configuração fica em `.bak`.
+- Sem terminal interativo (ou com `--plain`) vira perguntas simples, uma por linha.
+
+Para scripts: `sentinels config show`, `config get ai.model`, `config set alerts.min_severity critical`,
+`config set-secret SENTINELS_AI_KEY` (lê sem eco).
+
 ## Uso
 
 ```bash

@@ -20,6 +20,8 @@ Uso:
   sentinels <comando> [opções]
 
 Comandos:
+  setup     assistente de configuração (menus no terminal) — comece por aqui
+  config    show | get | set | set-secret, para scripts
   scan      varredura completa e relatório
   watch     monitoramento contínuo, correlação e alertas
   events    lista os eventos guardados na memória local
@@ -68,6 +70,10 @@ func main() {
 		os.Exit(runAITest(ctx, os.Args[2:]))
 	case "mcp":
 		os.Exit(runMCP(ctx, os.Args[2:]))
+	case "setup":
+		os.Exit(runSetup(ctx, os.Args[2:]))
+	case "config":
+		os.Exit(runConfig(ctx, os.Args[2:]))
 	case "doctor":
 		os.Exit(runDoctor(ctx, os.Args[2:]))
 	case "version":

@@ -5,6 +5,7 @@
 #   sudo sh install.sh --version v0.1.0     # versão específica
 #   sudo sh install.sh --from ./dist        # a partir de uma pasta local (mesmos arquivos da release)
 #   sudo sh install.sh --uninstall [--purge]
+#   sudo sh install.sh --no-setup           # não oferecer o assistente no final
 #
 # O que faz: baixa o binário e confere o SHA-256, cria o usuário de sistema
 # "sentinels", instala o serviço systemd e cria a configuração SEM sobrescrever
@@ -17,6 +18,7 @@ FROM=""
 UNINSTALL=0
 PURGE=0
 START=0
+SETUP=1
 
 BIN=/usr/local/bin/sentinels
 ETC=/etc/sentinels
@@ -32,9 +34,10 @@ while [ $# -gt 0 ]; do
     --version) VERSION="${2:?--version precisa de um valor}"; shift 2 ;;
     --from) FROM="${2:?--from precisa de uma pasta}"; shift 2 ;;
     --start) START=1; shift ;;
+    --no-setup) SETUP=0; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
     --purge) PURGE=1; shift ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
     *) die "opção desconhecida: $1" ;;
   esac
 done
@@ -138,6 +141,16 @@ fi
 install -m 0644 "$TMP/sentinels.service" "$UNIT"
 systemctl daemon-reload
 
+# Assistente de configuração: lê do terminal mesmo com "curl … | sudo sh".
+if [ "$SETUP" -ne 0 ] && (exec </dev/tty) 2>/dev/null; then
+  printf '\nAbrir o assistente de configuração agora? [S/n] ' >/dev/tty
+  read -r answer </dev/tty || answer=n
+  case "$answer" in
+    n|N|não|nao) ;;
+    *) "$BIN" setup -config "$ETC/sentinels.yaml" </dev/tty >/dev/tty 2>&1 || warn "assistente encerrado; rode de novo com: sudo sentinels setup" ;;
+  esac
+fi
+
 if [ "$START" -eq 1 ]; then
   systemctl enable --now sentinels.service
   say "serviço iniciado: journalctl -u sentinels -f"
@@ -146,7 +159,7 @@ fi
 cat <<EOF
 
 Sentinels instalado. Próximos passos:
-  1. Revise $ETC/sentinels.yaml e coloque chaves/tokens em $ETC/sentinels.env
+  1. sudo sentinels setup              (assistente: IA, alertas, integrações, bancos)
   2. sudo -u sentinels sentinels doctor -config $ETC/sentinels.yaml
   3. sudo systemctl enable --now sentinels
   4. journalctl -u sentinels -f
