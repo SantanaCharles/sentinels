@@ -313,3 +313,15 @@ func TestStatusDuringFirstScanPromisesReport(t *testing.T) {
 		t.Fatalf("resposta: %+v", got)
 	}
 }
+
+func TestWebhookConflictIsExplained(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":false,"error_code":409,"description":"Conflict: can't use getUpdates method while webhook is active; use deleteWebhook to delete the webhook first"}`))
+	}))
+	defer srv.Close()
+	b := &Bot{Token: "TOKEN", APIBase: srv.URL, client: srv.Client()}
+	_, err := b.getUpdates(context.Background(), 0)
+	if err == nil || !strings.Contains(err.Error(), "webhook ativo") || !strings.Contains(err.Error(), "n8n") {
+		t.Errorf("erro de webhook não explicado: %v", err)
+	}
+}

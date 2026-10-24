@@ -223,6 +223,9 @@ func (b *Bot) call(ctx context.Context, method string, params any, out any) erro
 	}
 	if !r.OK {
 		if r.ErrorCode == http.StatusConflict {
+			if strings.Contains(strings.ToLower(r.Description), "webhook") {
+				return errors.New("este bot tem um webhook ativo (ex.: Telegram Trigger do n8n) e por isso não pode ser lido pelo agente: crie um bot só para o Sentinels no @BotFather")
+			}
 			return errors.New("outro processo está lendo este bot (getUpdates): use um bot por servidor ou ative a conversa em só um agente")
 		}
 		return fmt.Errorf("%s: %s", method, r.Description)
