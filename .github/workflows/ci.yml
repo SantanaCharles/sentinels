@@ -23,6 +23,7 @@ jobs:
       - name: Feed de alertas assinado
         run: go run ./cmd/feedsign verify internal/intel/advisories.json
       - name: shellcheck
-        run: shellcheck -s sh deploy/install.sh scripts/release.sh
+        # Versão fixa: a do runner muda com a imagem do Ubuntu.
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 -s sh deploy/install.sh scripts/release.sh
       - name: Imagem Docker compila
         run: docker build -t sentinels:ci .

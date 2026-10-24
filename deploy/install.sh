@@ -50,7 +50,9 @@ if [ "$UNINSTALL" -eq 1 ]; then
   if [ "$PURGE" -eq 1 ]; then
     say "apagando configuração, memória local e usuário (--purge)"
     rm -rf "$ETC" "$VAR"
-    id sentinels >/dev/null 2>&1 && userdel sentinels 2>/dev/null || true
+    if id sentinels >/dev/null 2>&1; then
+      userdel sentinels 2>/dev/null || true
+    fi
   else
     say "configuração em $ETC e dados em $VAR foram mantidos (use --purge para apagar)"
   fi
