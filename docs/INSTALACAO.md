@@ -32,15 +32,26 @@ docker compose logs -f sentinels
 
 ## Opção A2 — Portainer (stack)
 
-1. **Stacks → Add stack**, nome `sentinels`, **Web editor**: cole
-   [`deploy/portainer-stack.yml`](../deploy/portainer-stack.yml) → **Deploy the stack**.
-   (Ou **Repository**: URL `https://github.com/SantanaCharles/sentinels`, compose path
-   `deploy/portainer-stack.yml` — atualizações com "Pull and redeploy".)
+1. **Stacks → Add stack**, nome `sentinels`, **Web editor**: cole o arquivo certo para o seu
+   ambiente → **Deploy the stack**.
+
+   | Ambiente no Portainer | Arquivo |
+   |-----------------------|---------|
+   | Docker Standalone | [`deploy/portainer-stack.yml`](../deploy/portainer-stack.yml) |
+   | **Docker Swarm** (comum em VPS com Traefik, n8n, Evolution API) | [`deploy/portainer-stack-swarm.yml`](../deploy/portainer-stack-swarm.yml) |
+
+   Se aparecer *"Compose file contains unsupported options: mem_limit"*, o ambiente é Swarm:
+   use o segundo arquivo. Nele agente e proxy rodam em modo **global** (um por nó), na rede do
+   host, e o proxy escuta só em `127.0.0.1` — no Swarm não use `ports` para o proxy, porque o
+   Swarm ignora o `127.0.0.1` e publicaria a porta em todas as interfaces.
+   (Também dá para usar **Repository**: URL `https://github.com/SantanaCharles/sentinels` e o
+   caminho do arquivo — atualizações com "Pull and redeploy".)
 2. **Containers → sentinels-sentinels-1 → Console** → *Command*: **Custom** →
    `/usr/local/bin/sentinels setup -config /var/lib/sentinels/sentinels.yaml` → deixe *User*
    vazio → **Connect**. Configure com as setas e escolha "Salvar e sair". Se o menu demorar a
    aparecer, use o mesmo comando com `--plain` (perguntas simples).
-3. **Restart** no container `sentinels-sentinels-1` e acompanhe em **Logs**.
+3. **Restart** no container `sentinels-sentinels-1` (Swarm: **Services → sentinels_sentinels →
+   Update the service** com "Re-pull image" desmarcado) e acompanhe em **Logs**.
 
 Sem arquivos no host: `sentinels.yaml` e `sentinels.env` (0600) ficam no volume
 `sentinels-data`, e o agente lê o `.env` sozinho. Antes do passo 2 ele já roda com a

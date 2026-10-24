@@ -1,0 +1,65 @@
+# Sentinels — stack para Portainer com Docker SWARM
+# (use esta se o Portainer acusar "unsupported options: mem_limit…").
+#
+# Stacks → Add stack → Web editor → cole → Deploy the stack. Depois:
+#   1. Containers → sentinels_sentinels.<…> → Console
+#      Command: Custom → /usr/local/bin/sentinels setup -config /var/lib/sentinels/sentinels.yaml
+#      (User vazio) → Connect → configure → "Salvar e sair"
+#   2. Services → sentinels_sentinels → Update the service (ou Restart do container)
+#
+# Os dois serviços rodam em modo global: um agente e um proxy em cada nó do cluster.
+# Ambos usam a rede do host; o proxy escuta SÓ em 127.0.0.1:2375 (nenhuma porta é
+# publicada — no Swarm, "ports" exporia o proxy em todas as interfaces).
+version: "3.8"
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    environment:
+      BIND_CONFIG: 127.0.0.1:2375   # só localhost
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [hostnet]
+    labels:
+      io.sentinels.self: "true"
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: 64M
+
+  sentinels:
+    image: ghcr.io/santanacharles/sentinels:v0.1.0
+    command: ["watch", "-config", "/var/lib/sentinels/sentinels.yaml"]
+    environment:
+      DOCKER_HOST: tcp://127.0.0.1:2375
+    networks: [hostnet]
+    volumes:
+      - sentinels-data:/var/lib/sentinels
+      - type: tmpfs
+        target: /tmp
+      # Opcional, se o Suricata estiver instalado no host:
+      # - /var/log/suricata:/var/log/suricata:ro
+    read_only: true
+    cap_drop: [ALL]
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+        delay: 10s
+      resources:
+        limits:
+          memory: 512M
+
+networks:
+  hostnet:
+    external: true
+    name: host
+
+volumes:
+  sentinels-data:

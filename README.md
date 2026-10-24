@@ -76,6 +76,7 @@ docker compose up -d
 ```
 
 **Portainer**: Stacks → Add stack → cole [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml)
+(ou [`deploy/portainer-stack-swarm.yml`](deploy/portainer-stack-swarm.yml) em **Docker Swarm**)
 e configure pelo Console do container (`sentinels setup`). Passo a passo em
 [docs/INSTALACAO.md](docs/INSTALACAO.md#opção-a2--portainer-stack).
 
