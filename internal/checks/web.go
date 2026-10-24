@@ -60,8 +60,13 @@ func (w *WebChecker) Check(ctx context.Context, target, label string) WebResult 
 	if err != nil {
 		return res
 	}
-	io.Copy(io.Discard, io.LimitReader(resp.Body, maxBody))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	resp.Body.Close()
+	// Plain HTTP sent to a TLS port: the answer is an error page, not the
+	// site. Report unreachable so the caller retries with https.
+	if !strings.HasPrefix(target, "https://") && resp.StatusCode == http.StatusBadRequest && httpsOnly(string(body)) {
+		return res
+	}
 	res.Reachable = true
 	res.Components = fingerprint.FromHeaders(resp.Header)
 
@@ -190,6 +195,15 @@ func (w *WebChecker) do(ctx context.Context, u string, headers map[string]string
 		req.Header.Set(k, v)
 	}
 	return w.client.Do(req)
+}
+
+// httpsOnly recognizes the replies of Go, nginx and Apache to plain HTTP on
+// a TLS port.
+func httpsOnly(body string) bool {
+	b := strings.ToLower(body)
+	return strings.Contains(b, "http request to an https server") ||
+		strings.Contains(b, "plain http request was sent to https port") ||
+		strings.Contains(b, "speaking plain http to an ssl-enabled server")
 }
 
 func looksHTML(body string) bool {

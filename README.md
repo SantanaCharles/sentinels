@@ -36,6 +36,7 @@ leve, sem custo e sem enviar dados para lugar nenhum além do que você configur
 | Containers | container privilegiado, `docker.sock` montado, rodando como root, rede do host |
 | Exposição | banco de dados ou painel administrativo acessível pela internet |
 | Imagens | CVEs conhecidas via Trivy |
+| Chaves vazadas | API keys, tokens e chaves privadas embutidas nas imagens (arquivos e histórico de build), `.env`/`.git` servidos pelo site, segredos em variáveis de ambiente — o valor nunca é lido nem guardado |
 | Web | headers de segurança ausentes, versão do servidor exposta |
 | Banco (PostgreSQL) | tabelas multitenant sem Row-Level Security, RLS sem `FORCE`, app conectando como owner/superuser |
 | Tempo real | alertas de CrowdSec, Suricata e Falco correlacionados por container/aplicação |
@@ -73,6 +74,10 @@ cp sentinels.docker.yaml sentinels.yaml
 cp sentinels.env.example sentinels.env && chmod 600 sentinels.env
 docker compose up -d
 ```
+
+**Portainer**: Stacks → Add stack → cole [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml)
+e configure pelo Console do container (`sentinels setup`). Passo a passo em
+[docs/INSTALACAO.md](docs/INSTALACAO.md#opção-a2--portainer-stack).
 
 **Binário + systemd** (confere o SHA-256 de tudo antes de instalar):
 

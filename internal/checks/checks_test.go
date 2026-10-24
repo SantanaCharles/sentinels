@@ -207,3 +207,14 @@ func TestRLSRemediationQuotesIdentifiers(t *testing.T) {
 		t.Errorf("identificador sem aspas na correção: %+v", fs)
 	}
 }
+
+func TestHTTPOnTLSPortIsNotAudited(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Client sent an HTTP request to an HTTPS server.\n"))
+	}))
+	defer srv.Close()
+	if r := NewWebChecker().Check(context.Background(), srv.URL, "portainer"); r.Reachable || len(r.Findings) != 0 {
+		t.Errorf("página de erro de TLS auditada como site: %+v", r)
+	}
+}

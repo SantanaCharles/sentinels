@@ -1,0 +1,49 @@
+# Sentinels — stack para o Portainer (Stacks → Add stack → Web editor → cole este arquivo).
+#
+# Depois de "Deploy the stack":
+#   1. Containers → sentinels-sentinels-1 → Console
+#      Command: Custom → /usr/local/bin/sentinels setup -config /var/lib/sentinels/sentinels.yaml
+#      (deixe "User" vazio) → Connect → configure com as setas → "Salvar e sair"
+#   2. Reinicie o container sentinels-sentinels-1 (botão Restart)
+#   3. Logs do container: o primeiro relatório sai em ~1 minuto (alguns mais com o Trivy)
+#
+# Configuração e segredos ficam no volume "sentinels-data" (sentinels.yaml e sentinels.env 0600):
+# nada para criar no host. O agente não recebe o socket do Docker: usa o proxy somente leitura.
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    labels:
+      io.sentinels.self: "true"
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+
+  sentinels:
+    image: ghcr.io/santanacharles/sentinels:v0.1.0
+    restart: unless-stopped
+    depends_on: [socket-proxy]
+    network_mode: host
+    environment:
+      DOCKER_HOST: tcp://127.0.0.1:2375
+    command: ["watch", "-config", "/var/lib/sentinels/sentinels.yaml"]
+    volumes:
+      - sentinels-data:/var/lib/sentinels
+      # Opcional, se o Suricata estiver instalado no host:
+      # - /var/log/suricata:/var/log/suricata:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    pids_limit: 200
+
+volumes:
+  sentinels-data:

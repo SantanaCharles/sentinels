@@ -30,6 +30,26 @@ docker compose logs -f sentinels
   docker compose restart sentinels
   ```
 
+## Opção A2 — Portainer (stack)
+
+1. **Stacks → Add stack**, nome `sentinels`, **Web editor**: cole
+   [`deploy/portainer-stack.yml`](../deploy/portainer-stack.yml) → **Deploy the stack**.
+   (Ou **Repository**: URL `https://github.com/SantanaCharles/sentinels`, compose path
+   `deploy/portainer-stack.yml` — atualizações com "Pull and redeploy".)
+2. **Containers → sentinels-sentinels-1 → Console** → *Command*: **Custom** →
+   `/usr/local/bin/sentinels setup -config /var/lib/sentinels/sentinels.yaml` → deixe *User*
+   vazio → **Connect**. Configure com as setas e escolha "Salvar e sair". Se o menu demorar a
+   aparecer, use o mesmo comando com `--plain` (perguntas simples).
+3. **Restart** no container `sentinels-sentinels-1` e acompanhe em **Logs**.
+
+Sem arquivos no host: `sentinels.yaml` e `sentinels.env` (0600) ficam no volume
+`sentinels-data`, e o agente lê o `.env` sozinho. Antes do passo 2 ele já roda com a
+configuração padrão (varredura, CVEs, chaves vazadas; alertas só no log).
+
+O próprio Portainer vai aparecer no relatório: ele monta o socket do Docker com escrita
+(Crítico) e publica o painel (Alto). É o esperado para o Portainer — mantenha-o atualizado,
+com senha forte/2FA e, de preferência, acessível só por VPN ou túnel SSH.
+
 ## Opção B — Binário + systemd
 
 ```bash

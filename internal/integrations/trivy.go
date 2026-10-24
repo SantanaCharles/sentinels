@@ -32,6 +32,15 @@ type trivyReport struct {
 			PrimaryURL       string
 			CweIDs           []string
 		}
+		// Secrets found in image files. Match (the line with the value) is
+		// never read: only the rule, file and line go into the report.
+		Secrets []struct {
+			RuleID    string
+			Category  string
+			Severity  string
+			Title     string
+			StartLine int
+		}
 	}
 }
 
@@ -49,15 +58,17 @@ func isKernelPackage(name string) bool {
 	return false
 }
 
-// TrivyImage scans one image for HIGH and CRITICAL CVEs. target names the
+// TrivyImage scans one image for HIGH and CRITICAL CVEs and for secrets
+// (API keys, tokens, private keys) baked into its files. target names the
 // containers using it, for the report. skipped counts kernel-package CVEs
 // left out because they do not apply inside a container.
 func TrivyImage(ctx context.Context, image, target string) (fs []finding.Finding, skipped int, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
+	// MEDIUM is requested for secrets; medium CVEs are dropped in parseTrivy.
 	cmd := exec.CommandContext(ctx, "trivy", "image",
-		"--quiet", "--format", "json", "--scanners", "vuln",
-		"--severity", "HIGH,CRITICAL", image)
+		"--quiet", "--format", "json", "--scanners", "vuln,secret",
+		"--severity", "MEDIUM,HIGH,CRITICAL", image)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
@@ -86,6 +97,9 @@ func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error
 				continue
 			}
 			sev, _ := finding.ParseSeverity(v.Severity)
+			if sev < finding.High {
+				continue // MEDIUM is only requested for secrets
+			}
 			f := finding.Finding{
 				ID:       "cve." + v.VulnerabilityID,
 				Severity: sev,
@@ -104,6 +118,37 @@ func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error
 				f.References = []string{v.PrimaryURL}
 			}
 			out = append(out, f)
+		}
+		for _, s := range r.Secrets {
+			key := "secret|" + s.RuleID + "|" + r.Target
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			sev, _ := finding.ParseSeverity(s.Severity)
+			if sev < finding.High {
+				sev = finding.High // a credential inside an image is never low risk
+			}
+			// Trivy reports files by path; anything else is the image
+			// config, i.e. a Dockerfile command kept in the build history.
+			where := "em " + r.Target
+			detail := fmt.Sprintf("O arquivo %s (linha %d) da imagem %s contém %s.", r.Target, s.StartLine, image, s.Category)
+			if !strings.HasPrefix(r.Target, "/") {
+				where = "no histórico de build (docker history)"
+				detail = fmt.Sprintf("Um comando do Dockerfile da imagem %s contém %s; o texto fica gravado nas camadas e aparece em `docker history`.", image, s.Category)
+			}
+			out = append(out, finding.Finding{
+				ID:       "secret." + s.RuleID,
+				Severity: sev,
+				Target:   target,
+				CWE:      []string{"CWE-798"},
+				Title:    fmt.Sprintf("Segredo embutido na imagem: %s %s", s.Title, where),
+				Detail:   detail + " Qualquer pessoa que consiga baixar a imagem — ou acessar o container — obtém a credencial. (O Sentinels não lê nem guarda o valor.)",
+				Remediation: "1) Troque/revogue a credencial agora: apagar o arquivo numa versão nova não a remove das camadas antigas nem de quem já baixou a imagem. " +
+					"2) Tire o segredo da imagem: .dockerignore para .env e chaves, build multi-stage, e passe segredos em tempo de execução (variáveis, Docker secrets). " +
+					"3) Reconstrua e publique a imagem limpa.",
+				References: []string{"https://cwe.mitre.org/data/definitions/798.html"},
+			})
 		}
 	}
 	return out, skipped, nil

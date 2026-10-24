@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/SantanaCharles/sentinels/internal/config"
@@ -86,16 +87,32 @@ func main() {
 	}
 }
 
-// loadConfig registers -config, parses args and loads the file. The default
-// path is optional so every command works with zero configuration.
+// loadConfig registers -config, parses args and loads the file. A missing
+// file means defaults, so the agent starts even before `sentinels setup`
+// (e.g. a fresh Portainer stack). The sentinels.env next to it is applied
+// too, without overriding variables already set by systemd or Docker.
 func loadConfig(fs *flag.FlagSet, args []string) (config.Config, error) {
 	path := fs.String("config", defaultConfig, "arquivo de configuração")
 	if err := fs.Parse(args); err != nil {
 		return config.Config{}, err
 	}
-	explicit := false
-	fs.Visit(func(f *flag.Flag) { explicit = explicit || f.Name == "config" })
-	return config.Load(*path, !explicit)
+	if _, err := os.Stat(*path); os.IsNotExist(err) {
+		logf("aviso: %s não existe; usando a configuração padrão. Configure com: sentinels setup -config %s", *path, *path)
+	}
+	cfg, err := config.Load(*path, true)
+	if err != nil {
+		return cfg, err
+	}
+	envPath := filepath.Join(filepath.Dir(*path), "sentinels.env")
+	if st, err := os.Stat(envPath); err == nil {
+		if st.Mode().Perm()&0o077 != 0 {
+			logf("aviso: %s pode ser lido por outros usuários; rode chmod 600 %s", envPath, envPath)
+		}
+		if env, err := config.LoadEnvFile(envPath); err == nil { // unreadable (systemd already loaded it): skip
+			env.ApplyMissing()
+		}
+	}
+	return cfg, nil
 }
 
 func logf(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }

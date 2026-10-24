@@ -92,3 +92,16 @@ func TestEnvFile(t *testing.T) {
 		t.Error("arquivo ausente deveria ser vazio")
 	}
 }
+
+func TestApplyMissingDoesNotOverride(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sentinels.env")
+	os.WriteFile(path, []byte("SENT_T_A=do-arquivo\nSENT_T_B=do-arquivo\n"), 0o600)
+	os.Setenv("SENT_T_A", "do-systemd")
+	defer os.Unsetenv("SENT_T_A")
+	defer os.Unsetenv("SENT_T_B")
+	f, _ := LoadEnvFile(path)
+	f.ApplyMissing()
+	if os.Getenv("SENT_T_A") != "do-systemd" || os.Getenv("SENT_T_B") != "do-arquivo" {
+		t.Errorf("A=%q B=%q", os.Getenv("SENT_T_A"), os.Getenv("SENT_T_B"))
+	}
+}

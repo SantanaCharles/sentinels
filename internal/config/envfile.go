@@ -92,6 +92,18 @@ func (f *EnvFile) Apply() {
 	}
 }
 
+// ApplyMissing exports values that are not already in the environment:
+// whatever systemd or Docker injected wins over the file.
+func (f *EnvFile) ApplyMissing() {
+	for _, l := range f.lines {
+		if k, v, ok := parseLine(l); ok && v != "" {
+			if _, set := os.LookupEnv(k); !set {
+				os.Setenv(k, v)
+			}
+		}
+	}
+}
+
 // Save writes atomically with mode 0600, keeping the previous owner.
 func (f *EnvFile) Save() error {
 	old, statErr := os.Stat(f.Path)
