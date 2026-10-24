@@ -105,3 +105,38 @@ func TestApplyMissingDoesNotOverride(t *testing.T) {
 		t.Errorf("A=%q B=%q", os.Getenv("SENT_T_A"), os.Getenv("SENT_T_B"))
 	}
 }
+
+// Regression: setup ran without DOCKER_HOST and wrote /var/run/docker.sock,
+// which then overrode the proxy address given to the agent container.
+func TestDockerHostWinsAndDefaultsAreNotPersisted(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sentinels.yaml")
+	os.Unsetenv("DOCKER_HOST")
+	if err := Save(Default(), path); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); strings.Contains(string(b), "docker:") || strings.Contains(string(b), "socket") {
+		t.Errorf("endereço padrão gravado no arquivo:\n%s", b)
+	}
+
+	os.WriteFile(path, []byte("docker:\n  socket: /var/run/docker.sock\n"), 0o640) // file from the old setup
+	t.Setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+	cfg, err := Load(path, false)
+	if err != nil || cfg.Docker.Socket != "tcp://127.0.0.1:2375" {
+		t.Errorf("DOCKER_HOST deveria prevalecer: %q %v", cfg.Docker.Socket, err)
+	}
+	if err := Save(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); strings.Contains(string(b), "2375") {
+		t.Error("endereço vindo do ambiente foi gravado no arquivo")
+	}
+
+	os.Unsetenv("DOCKER_HOST")
+	os.WriteFile(path, []byte("docker:\n  socket: tcp://10.0.0.5:2375\n"), 0o640)
+	if cfg, _ := Load(path, false); cfg.Docker.Socket != "tcp://10.0.0.5:2375" {
+		t.Errorf("socket explícito ignorado: %q", cfg.Docker.Socket)
+	}
+	if cfg, _ := Load(filepath.Join(t.TempDir(), "nao-existe.yaml"), true); cfg.Docker.Socket != "/var/run/docker.sock" {
+		t.Errorf("padrão sem nada configurado: %q", cfg.Docker.Socket)
+	}
+}

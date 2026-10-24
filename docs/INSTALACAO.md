@@ -27,7 +27,12 @@ docker compose logs -f sentinels
   ```bash
   docker run --rm -it --network host --user "$(id -u):$(id -g)" -v "$PWD:/work" \
     ghcr.io/santanacharles/sentinels:latest setup -config /work/sentinels.yaml -env /work/sentinels.env
-  docker compose restart sentinels
+  ```
+
+  Depois, num comando separado (recria o container: `restart` não relê o `sentinels.env`):
+
+  ```bash
+  docker compose up -d --force-recreate sentinels
   ```
 
 ## Opção A2 — Portainer (stack)

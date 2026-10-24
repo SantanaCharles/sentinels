@@ -198,7 +198,7 @@ func (s *Session) save() error {
 	}
 	s.dirty = false
 	fmt.Fprintf(s.Out, "\n✔ Salvo: %s e %s (0600)\n", s.ConfigPath, s.EnvPath)
-	fmt.Fprintln(s.Out, "  Para aplicar: sudo systemctl restart sentinels · docker compose restart sentinels · ou Restart do container no Portainer")
+	fmt.Fprintln(s.Out, "  Para aplicar: sudo systemctl restart sentinels · docker compose up -d --force-recreate sentinels · ou Restart do container no Portainer")
 	return nil
 }
 

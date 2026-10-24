@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	Docker       Docker       `yaml:"docker"`
+	Docker       Docker       `yaml:"docker,omitempty"`
 	Scan         Scan         `yaml:"scan"`
 	Storage      Storage      `yaml:"storage"`
 	Databases    []Database   `yaml:"databases,omitempty"`
@@ -24,7 +24,9 @@ type Config struct {
 }
 
 type Docker struct {
-	Socket string `yaml:"socket"`
+	// Socket: Unix path or tcp://host:port. DOCKER_HOST, when set, always
+	// wins: it is how Docker deployments point the agent at the read-only proxy.
+	Socket string `yaml:"socket,omitempty"`
 }
 
 type Scan struct {
@@ -145,12 +147,7 @@ func Default() Config {
 
 // dockerHostDefault honors DOCKER_HOST (e.g. tcp://127.0.0.1:2375 for a
 // read-only socket proxy), the same variable the Docker CLI and Trivy use.
-func dockerHostDefault() string {
-	if h := os.Getenv("DOCKER_HOST"); h != "" {
-		return h
-	}
-	return "/var/run/docker.sock"
-}
+func dockerHostDefault() string { return resolveSocket("") }
 
 // Load reads path over the defaults. A missing file is not an error when
 // optional is true, so `sentinels scan` works with zero configuration.
@@ -166,7 +163,23 @@ func Load(path string, optional bool) (Config, error) {
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("interpretando %s: %w", path, err)
 	}
+	cfg.Docker.Socket = resolveSocket(cfg.Docker.Socket)
 	return cfg, cfg.Validate()
+}
+
+const defaultSocket = "/var/run/docker.sock"
+
+// resolveSocket applies DOCKER_HOST over the file. A file written by setup on
+// another machine (or in a container without DOCKER_HOST) must not pull the
+// agent away from the proxy its deployment configured.
+func resolveSocket(fromFile string) string {
+	if h := os.Getenv("DOCKER_HOST"); h != "" {
+		return h
+	}
+	if fromFile == "" {
+		return defaultSocket
+	}
+	return fromFile
 }
 
 // Validate checks values that would only fail later, at runtime.
@@ -200,6 +213,11 @@ const header = `# Sentinels — configuração. Gerado por "sentinels setup"; po
 func Save(cfg Config, path string) error {
 	if err := cfg.Validate(); err != nil {
 		return err
+	}
+	// Never persist an address that came from the defaults or the
+	// environment: only an explicit custom socket belongs in the file.
+	if s := cfg.Docker.Socket; s == defaultSocket || s == os.Getenv("DOCKER_HOST") {
+		cfg.Docker.Socket = ""
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
