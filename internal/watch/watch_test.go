@@ -2,9 +2,12 @@ package watch
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -212,5 +215,33 @@ func TestRequestScanRunsNowAndCallsHooks(t *testing.T) {
 	}
 	if (&Watcher{}).RequestScan() != ScanUnavailable {
 		t.Error("sem Scan configurado deveria ser indisponível")
+	}
+}
+
+func TestHeartbeatAlertAlwaysDelivered(t *testing.T) {
+	w, _ := newWatcher(t)
+	w.Heartbeat = 24 * time.Hour
+	a := w.heartbeatAlert(context.Background(), time.Now().Add(-3*time.Hour))
+	text := strings.Join(a.Lines, "\n")
+	if !a.Always || a.Title != "🟢 Sentinels ativo" || !strings.Contains(text, "Rodando há 3h") ||
+		!strings.Contains(text, "sentinels setup install") || !strings.Contains(text, "parar de chegar") {
+		t.Errorf("sinal de vida: %+v", a)
+	}
+}
+
+func TestPingLoopHitsURL(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hits.Add(1) }))
+	defer srv.Close()
+	w, _ := newWatcher(t)
+	w.HeartbeatURL = srv.URL
+	w.Log = func(string, ...any) {}
+	ctx, cancel := context.WithCancel(context.Background())
+	go w.pingLoop(ctx)
+	for end := time.Now().Add(2 * time.Second); hits.Load() == 0 && time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+	}
+	cancel()
+	if hits.Load() == 0 {
+		t.Error("ping inicial não enviado")
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/fingerprint"
 	"github.com/SantanaCharles/sentinels/internal/integrations"
 	"github.com/SantanaCharles/sentinels/internal/intel"
+	"github.com/SantanaCharles/sentinels/internal/store"
 	"github.com/SantanaCharles/sentinels/internal/version"
 )
 
@@ -58,6 +59,8 @@ type Result struct {
 	History  *History          `json:"history,omitempty"` // nil when the local store is unavailable
 	// AISummary is the model's executive summary (already sanitized), if enabled.
 	AISummary string `json:"ai_summary,omitempty"`
+	// Metrics: fix times, alert quality and attackers (needs the local store).
+	Metrics *store.Metrics `json:"metrics,omitempty"`
 }
 
 // History compares this scan with the previous one.
@@ -165,7 +168,12 @@ func Run(ctx context.Context, cfg config.Config, opt Options) *Result {
 		opt.Log("  %s: %s %v", c.Name, st.Kind, st.Components)
 	}
 
-	for _, u := range cfg.Scan.URLs {
+	urls := publicURLs(ctx, cfg.Scan.URLs, containers, dc)
+	if n := len(urls) - len(cfg.Scan.URLs); n > 0 {
+		opt.Log("%d domínio(s) descoberto(s) nos labels do Traefik/Caddy", n)
+	}
+	for _, u := range urls {
+		res.Findings = append(res.Findings, checks.TLSCertificate(ctx, u, time.Now())...)
 		r := web.Check(ctx, u, u)
 		if !r.Reachable {
 			warn("URL %s não respondeu", u)
@@ -179,6 +187,9 @@ func Run(ctx context.Context, cfg config.Config, opt Options) *Result {
 		}
 	}
 	res.Findings = append(res.Findings, checks.HostListeners(opt.ProcRoot, publishedPorts)...)
+	res.Findings = append(res.Findings, checks.Freshness(checks.FreshnessPaths{
+		CacheDir: cfg.Scan.CacheDir, TrivyCacheDir: checks.DefaultTrivyCache(), Offline: cfg.Scan.Offline,
+	}, time.Now())...)
 
 	for _, db := range cfg.Databases {
 		if db.Driver != "" && db.Driver != "postgres" {
@@ -285,4 +296,41 @@ func mergeSorted(a, b []string) []string {
 	}
 	sort.Strings(a)
 	return a
+}
+
+// maxDiscoveredDomains bounds how many auto-discovered sites one scan visits.
+const maxDiscoveredDomains = 30
+
+// publicURLs merges the configured URLs with the domains found in reverse-proxy
+// labels (containers, and Swarm services where Traefik reads them).
+func publicURLs(ctx context.Context, configured []string, containers []discovery.Container, dc *discovery.Client) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(u string) {
+		u = strings.TrimRight(u, "/")
+		if u != "" && !seen[u] {
+			seen[u] = true
+			out = append(out, u)
+		}
+	}
+	for _, u := range configured {
+		add(u)
+	}
+	labelSets := dc.ServiceLabels(ctx)
+	for _, c := range containers {
+		labelSets = append(labelSets, c.Labels)
+	}
+	found := 0
+	for _, labels := range labelSets {
+		for _, d := range discovery.DomainsFromLabels(labels) {
+			if found >= maxDiscoveredDomains {
+				return out
+			}
+			if !seen["https://"+d] {
+				found++
+			}
+			add("https://" + d)
+		}
+	}
+	return out
 }

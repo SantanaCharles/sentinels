@@ -174,6 +174,30 @@ func (s *Session) sectionScan() error {
 	sc.URLs = lines(urls)
 	s.Cfg.Storage.RetentionDays, _ = strconv.Atoi(retention)
 	s.dirty = true
+	return s.heartbeatSettings()
+}
+
+// heartbeatSettings: a silent agent is dangerous, so offer the "still
+// alive" summary and an external dead-man's-switch URL.
+func (s *Session) heartbeatSettings() error {
+	al := &s.Cfg.Alerts
+	hb := al.Heartbeat
+	if err := s.form(huh.NewSelect[string]().Title("Aviso periódico \"Sentinels ativo\" nos canais").
+		Description("Se ele parar de chegar, o agente ou o servidor caiu.").
+		Options(huh.NewOption("Todo dia (recomendado)", "24h"), huh.NewOption("A cada 12 horas", "12h"),
+			huh.NewOption("Toda semana", "168h"), huh.NewOption("Desligado", "")).Value(&hb)); err != nil {
+		return err
+	}
+	al.Heartbeat = hb
+	if s.confirm("Usar um monitor externo (healthchecks.io, Uptime Kuma \"push\")? Ele avisa sozinho se o agente parar.", false) {
+		if al.HeartbeatURLEnv == "" {
+			al.HeartbeatURLEnv = "SENTINELS_HEARTBEAT_URL"
+		}
+		if err := s.secret("URL de ping do monitor (o agente acessa a cada 5 minutos)", al.HeartbeatURLEnv,
+			prefix("https://", "http://127.0.0.1", "http://localhost")); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

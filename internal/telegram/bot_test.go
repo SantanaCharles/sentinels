@@ -378,3 +378,17 @@ func TestDoctorShowsMissingWithInstallSteps(t *testing.T) {
 		t.Errorf("sem Health: %s", text)
 	}
 }
+
+func TestMetricsCommand(t *testing.T) {
+	bot, _, _, _ := setup(t)
+	out := bot.metrics(context.Background()).text
+	for _, want := range []string{"📊 Métricas — vps-01", "Eventos: 1", "🔴 1", "203.0.113.7 — 1",
+		"T1190 Exploit Public-Facing Application", "Falso positivo: — (0 falso"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("/metrics sem %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "segredo123abc") {
+		t.Error("vazou segredo")
+	}
+}

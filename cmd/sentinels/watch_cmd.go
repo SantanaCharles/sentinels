@@ -112,6 +112,8 @@ func runWatch(ctx context.Context, args []string) int {
 		DedupWindow:  config.Duration(cfg.Alerts.DedupWindow, 15*time.Minute),
 		ScanInterval: config.Duration(cfg.Scan.Interval, 6*time.Hour),
 		Retention:    time.Duration(cfg.Storage.RetentionDays) * 24 * time.Hour,
+		Heartbeat:    config.Duration(cfg.Alerts.Heartbeat, 0),
+		HeartbeatURL: config.Secret(cfg.Alerts.HeartbeatURLEnv),
 		Log:          logf,
 	}
 	if !*noScan {

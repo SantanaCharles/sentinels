@@ -23,6 +23,7 @@ const help = `🛡 Sentinels — comandos
 /status — resumo do servidor
 /scan — varredura completa agora; mando o status quando terminar
 /inventory — o que está rodando: containers, stack, portas (ou: /inventory php)
+/metrics — tempo de correção, falsos positivos, quem mais ataca
 /doctor — o que o Sentinels tem ativo e como instalar o que falta
 /findings — problemas abertos (ou: /findings critical | high | medium | all)
 /events — ataques e eventos das últimas 24h (ou: /events 72)
@@ -69,6 +70,8 @@ func (b *Bot) onMessage(ctx context.Context, m *message) reply {
 		return b.suppressions(ctx)
 	case "/inventory", "/inventario", "/inventário":
 		return b.inventory(args)
+	case "/metrics", "/metricas", "/métricas":
+		return b.metrics(ctx)
 	case "/doctor", "/setup", "/saude", "/saúde":
 		return b.doctor(ctx)
 	default:

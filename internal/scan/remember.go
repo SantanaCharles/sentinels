@@ -27,5 +27,8 @@ func Remember(ctx context.Context, st *store.Store, res *Result) error {
 		f.Accepted = accepted[f.Key()]
 	}
 	res.History = &History{New: len(diff.New), Resolved: diff.Resolved, First: diff.First}
+	if m, err := st.Metrics(ctx, res.Started); err == nil {
+		res.Metrics = m
+	}
 	return nil
 }

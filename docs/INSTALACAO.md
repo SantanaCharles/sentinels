@@ -116,7 +116,7 @@ Compose, suba só o proxy e aponte o agente para ele:
 
 ```bash
 docker run -d --name sentinels-socket-proxy --restart unless-stopped \
-  -e CONTAINERS=1 -e IMAGES=1 -e POST=0 \
+  -e CONTAINERS=1 -e IMAGES=1 -e SERVICES=1 -e POST=0 \
   -v /var/run/docker.sock:/var/run/docker.sock:ro -p 127.0.0.1:2375:2375 \
   --label io.sentinels.self=true tecnativa/docker-socket-proxy:v0.5.0
 sudo gpasswd -d sentinels docker

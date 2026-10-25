@@ -41,13 +41,13 @@ func reload(t *testing.T, s *Session) (config.Config, *config.EnvFile) {
 }
 
 func TestScanSection(t *testing.T) {
-	s, _ := session(t, "2", "1", "3", "https://exemplo.com.br", "", "30", "y")
+	s, _ := session(t, "2", "1", "3", "https://exemplo.com.br", "", "30", "1", "n", "y")
 	if err := s.Run(context.Background(), "scan"); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := reload(t, s)
 	if cfg.Scan.Interval != "3h" || cfg.Alerts.MinSeverity != "critical" || cfg.Alerts.DedupWindow != "30m" ||
-		len(cfg.Scan.URLs) != 1 || cfg.Storage.RetentionDays != 30 {
+		len(cfg.Scan.URLs) != 1 || cfg.Storage.RetentionDays != 30 || cfg.Alerts.Heartbeat != "24h" {
 		t.Errorf("config: %+v %+v %+v", cfg.Scan, cfg.Alerts, cfg.Storage)
 	}
 }
@@ -131,7 +131,7 @@ func TestFreeEnvNameAndSuggestion(t *testing.T) {
 }
 
 func TestPortugueseSectionAliasStillWorks(t *testing.T) {
-	s, _ := session(t, "2", "1", "3", "", "", "30", "y")
+	s, _ := session(t, "2", "1", "3", "", "", "30", "4", "n", "y")
 	if err := s.Run(context.Background(), "varredura"); err != nil {
 		t.Fatalf("alias em português quebrou: %v", err)
 	}

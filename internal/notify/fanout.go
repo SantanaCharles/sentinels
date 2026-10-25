@@ -61,7 +61,7 @@ func (f *Fanout) Wait() { f.wg.Wait() }
 func (f *Fanout) Alert(_ context.Context, a watch.Alert) error {
 	m := FromAlert(a, f.Host)
 	for _, w := range f.workers {
-		if m.Severity < w.ch.MinSeverity {
+		if m.Severity < w.ch.MinSeverity && !a.Always {
 			continue
 		}
 		select {

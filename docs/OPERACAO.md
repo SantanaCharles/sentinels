@@ -26,7 +26,34 @@ No log, procure:
 | `IA ativa: …` | IA configurada |
 | `Relatório: /var/lib/sentinels/reports/…` | uma varredura terminou |
 
-Pelo Telegram: `/doctor` (o que está ativo e o que falta), `/status`, `/inventory`.
+Pelo Telegram: `/doctor` (o que está ativo e o que falta), `/status`, `/inventory`, `/metrics`.
+
+### Sinal de vida e monitor externo
+
+Um agente parado não alerta nada, então ele avisa que está vivo:
+
+- `alerts.heartbeat: 24h` manda "🟢 Sentinels ativo" em todos os canais (com tempo no ar, eventos
+  desde o último aviso e críticos abertos). **Se a mensagem não chegar no horário, o agente ou o servidor caiu.**
+- Para ser avisado sem depender de notar a ausência, crie um check no [healthchecks.io](https://healthchecks.io)
+  ou um monitor "push" no Uptime Kuma, coloque a URL em `SENTINELS_HEARTBEAT_URL` no `sentinels.env` e
+  `alerts.heartbeat_url_env: SENTINELS_HEARTBEAT_URL` no YAML. O agente acessa a URL a cada 5 minutos;
+  se parar, o monitor avisa você.
+
+Os dois ficam em `sentinels setup scan`.
+
+### O que a varredura também verifica sobre o próprio agente
+
+| Achado | Quando |
+|--------|--------|
+| `tls.expired` / `tls.expiring` | certificado vencido ou vencendo em menos de 14 dias (alto em menos de 7) |
+| `tls.invalid` / `tls.old_protocol` | certificado que não bate com o domínio, autoassinado, ou servidor aceitando TLS < 1.2 |
+| `agent.stale_trivy_db` | base de CVEs do Trivy com mais de 3 dias |
+| `agent.stale_advisories` / `agent.stale_kev` | feed de alertas emergenciais / catálogo CISA KEV sem atualizar |
+| `agent.stale_suricata_rules` / `agent.stale_crowdsec_hub` | regras do Suricata com mais de 7 dias / hub do CrowdSec com mais de 14 |
+
+Os domínios verificados são os de `scan.urls` **mais** os descobertos sozinhos nos labels do Traefik
+(`Host(...)`) e do Caddy, dos containers e dos serviços do Swarm (até 30). Para ler os serviços do Swarm,
+o socket-proxy precisa de `SERVICES: 1` — já vem nos arquivos de `deploy/`.
 
 ## 2. Versão e atualização
 
@@ -44,6 +71,10 @@ curl -s https://api.github.com/repos/SantanaCharles/sentinels/releases/latest | 
 | Comando no host (`--cli-only`) | `sudo sh install.sh --cli-only` |
 
 Configuração e memória ficam no volume/pasta e são preservadas.
+
+> **Vindo da v0.2.2 ou anterior:** adicione `SERVICES: 1` no `environment` do `socket-proxy` (ou copie o
+> `deploy/` novo) e recrie os dois containers com `docker compose up -d --force-recreate`. Sem isso tudo
+> funciona, só os domínios dos serviços do Swarm não são descobertos.
 
 ## 3. Testar a detecção (ataques simulados)
 

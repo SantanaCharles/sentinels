@@ -68,6 +68,11 @@ type Alerts struct {
 	MinSeverity string     `yaml:"min_severity"`
 	DedupWindow string     `yaml:"dedup_window"`
 	Notifiers   []Notifier `yaml:"notifiers,omitempty"`
+	// Heartbeat: "24h" sends a periodic "still alive" summary to every channel
+	// (empty = off). HeartbeatURLEnv names a URL pinged every 5 minutes
+	// (healthchecks.io, Uptime Kuma push): it alerts you if the pings stop.
+	Heartbeat       string `yaml:"heartbeat,omitempty"`
+	HeartbeatURLEnv string `yaml:"heartbeat_url_env,omitempty"`
 }
 
 // Notifier is one alert channel. Which fields apply depends on Type:
@@ -186,6 +191,11 @@ func resolveSocket(fromFile string) string {
 func (c Config) Validate() error {
 	if _, err := time.ParseDuration(c.Scan.Interval); err != nil {
 		return fmt.Errorf("scan.interval inválido: %w", err)
+	}
+	if c.Alerts.Heartbeat != "" {
+		if d, err := time.ParseDuration(c.Alerts.Heartbeat); err != nil || d < time.Hour {
+			return fmt.Errorf("alerts.heartbeat inválido: %q (use ex.: 24h; mínimo 1h)", c.Alerts.Heartbeat)
+		}
 	}
 	if _, err := time.ParseDuration(c.Alerts.DedupWindow); err != nil {
 		return fmt.Errorf("alerts.dedup_window inválido: %w", err)

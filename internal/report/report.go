@@ -174,6 +174,10 @@ func Markdown(w io.Writer, r *scan.Result) {
 		p("\n")
 	}
 
+	if m := r.Metrics; m != nil {
+		metricsSection(p, m)
+	}
+
 	if len(cves) > 0 {
 		p("## Vulnerabilidades nas imagens (CVEs)\n\n")
 		p("Ordenadas por urgência: explorada ativamente (KEV) e probabilidade de exploração (EPSS).\n\n")

@@ -30,6 +30,7 @@ type Alert struct {
 	Count    int
 	EventID  int64    // stored event, for `sentinels feedback <id>`
 	Stack    []string // components of the target, from the last scan
+	Always   bool     // delivered regardless of each channel's minimum severity (heartbeat)
 }
 
 // Alerter delivers alerts (log, Telegram, Slack…).
@@ -49,8 +50,12 @@ type Watcher struct {
 	Scan func(ctx context.Context) *scan.Result
 	Log  func(format string, args ...any)
 	// AfterScan hooks run after each scan (e.g. the Telegram bot replying
-	// to "/varrer" with the new status).
+	// to "/scan" with the new status).
 	AfterScan []func(*scan.Result)
+	// Heartbeat > 0 sends a periodic "still alive" summary; HeartbeatURL is
+	// pinged every 5 minutes (external dead-man's switch).
+	Heartbeat    time.Duration
+	HeartbeatURL string
 
 	mu          sync.RWMutex
 	state       targetState
@@ -90,6 +95,12 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 	if w.Scan != nil {
 		go w.scanLoop(ctx)
+	}
+	if w.Heartbeat > 0 {
+		go w.heartbeatLoop(ctx)
+	}
+	if w.HeartbeatURL != "" {
+		go w.pingLoop(ctx)
 	}
 	prune := time.NewTicker(6 * time.Hour)
 	defer prune.Stop()

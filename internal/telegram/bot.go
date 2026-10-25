@@ -263,6 +263,7 @@ func (b *Bot) registerCommands(ctx context.Context) {
 		{"command": "status", "description": "Server summary"},
 		{"command": "scan", "description": "Full scan now (status when it finishes)"},
 		{"command": "inventory", "description": "What is running: containers, stack, ports"},
+		{"command": "metrics", "description": "Fix times, false positives, top attackers"},
 		{"command": "doctor", "description": "What Sentinels has active and what is missing"},
 		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
 		{"command": "events", "description": "Recent attacks and events (e.g. /events 48)"},
