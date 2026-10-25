@@ -6,6 +6,7 @@
 #   sudo sh install.sh --from ./dist        # a partir de uma pasta local (mesmos arquivos da release)
 #   sudo sh install.sh --uninstall [--purge]
 #   sudo sh install.sh --no-setup           # não oferecer o assistente no final
+#   sudo sh install.sh --cli-only           # só o comando sentinels (para quem roda o agente em Docker/Portainer)
 #
 # O que faz: baixa o binário e confere o SHA-256, cria o usuário de sistema
 # "sentinels", instala o serviço systemd e cria a configuração SEM sobrescrever
@@ -19,6 +20,7 @@ UNINSTALL=0
 PURGE=0
 START=0
 SETUP=1
+CLI_ONLY=0
 
 BIN=/usr/local/bin/sentinels
 ETC=/etc/sentinels
@@ -35,9 +37,10 @@ while [ $# -gt 0 ]; do
     --from) FROM="${2:?--from precisa de uma pasta}"; shift 2 ;;
     --start) START=1; shift ;;
     --no-setup) SETUP=0; shift ;;
+    --cli-only) CLI_ONLY=1; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
     --purge) PURGE=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     *) die "opção desconhecida: $1" ;;
   esac
 done
@@ -108,6 +111,16 @@ command -v sha256sum >/dev/null 2>&1 || die "sha256sum não encontrado (pacote c
 say "instalando $BIN"
 install -m 0755 "$TMP/$ASSET" "$BIN"
 "$BIN" version
+
+if [ "$CLI_ONLY" -eq 1 ]; then
+  cat <<EOF
+
+Comando sentinels instalado (sem serviço: o agente continua rodando no Docker).
+Na pasta da instalação Docker (onde está o sentinels.yaml):
+  cd ~/sentinels/deploy && sudo sentinels setup
+EOF
+  exit 0
+fi
 
 if ! id sentinels >/dev/null 2>&1; then
   say "criando usuário de sistema 'sentinels'"

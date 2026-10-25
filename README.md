@@ -96,12 +96,14 @@ Details, hardening and upgrades: [docs/INSTALACAO.md](docs/INSTALACAO.md).
 
 ```bash
 sudo sentinels setup              # arrow-key menu: ↑ ↓ to move, Enter to select
-sudo sentinels setup ai           # jump to a section: quick, ai, notifications, integrations, databases, scan, vault, mcp
+sudo sentinels setup ai           # jump to a section: quick, install, ai, notifications, integrations, databases, scan, vault, mcp
+sudo sentinels setup install      # install or reconfigure CrowdSec, Suricata, Falco, Trivy
 ```
 
 | Section | What you configure |
 |---------|--------------------|
 | `quick` | AI + one alert channel + a test, in two minutes |
+| `install` | install or reconfigure **CrowdSec** (key, reverse-proxy logs, firewall blocking incl. Docker ports, your SSH IP whitelisted), **Suricata**, **Falco**, **Trivy** — every command is shown and confirmed before running |
 | `ai` | provider, model, API key and usage limits |
 | `notifications` | Telegram, Slack, Discord, e-mail, webhook — and Telegram chat |
 | `integrations` | Trivy, CrowdSec, Suricata, Falco |
@@ -117,6 +119,9 @@ sudo sentinels setup ai           # jump to a section: quick, ai, notifications,
 - **Secrets kept apart**: keys and tokens go to `sentinels.env` (0600), never to the YAML;
   password fields are not echoed. The previous configuration is kept as `.bak`.
 - Without an interactive terminal (or with `--plain`) it falls back to simple line-by-line prompts.
+- Running the agent in Docker/Portainer? Installing components needs the host, so add just the
+  CLI there: `sudo sh install.sh --cli-only`, then `cd ~/sentinels/deploy && sudo sentinels setup`
+  (it finds the `sentinels.yaml` in the current folder and offers to recreate the container).
 
 For scripts: `sentinels config show`, `config get ai.model`, `config set alerts.min_severity critical`,
 `config set-secret SENTINELS_AI_KEY` (reads without echo).

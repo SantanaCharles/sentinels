@@ -13,7 +13,27 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/version"
 )
 
-const defaultConfig = "/etc/sentinels/sentinels.yaml"
+// defaultConfig: $SENTINELS_CONFIG, else the system file, else a
+// sentinels.yaml in the current directory (e.g. ~/sentinels/deploy for the
+// Docker Compose install), else the system path (created by setup).
+var defaultConfig = resolveDefaultConfig()
+
+func resolveDefaultConfig() string {
+	const system = "/etc/sentinels/sentinels.yaml"
+	if p := os.Getenv("SENTINELS_CONFIG"); p != "" {
+		return p
+	}
+	if _, err := os.Stat(system); err == nil {
+		return system
+	}
+	if wd, err := os.Getwd(); err == nil {
+		local := filepath.Join(wd, "sentinels.yaml")
+		if _, err := os.Stat(local); err == nil {
+			return local
+		}
+	}
+	return system
+}
 
 const usage = `Sentinels — agente de segurança para servidores e containers
 
@@ -22,6 +42,7 @@ Uso:
 
 Comandos:
   setup     assistente de configuração (menus no terminal) — comece por aqui
+            sentinels setup install: instalar CrowdSec, Suricata, Falco, Trivy
   config    show | get | set | set-secret, para scripts
   scan      varredura completa e relatório
   watch     monitoramento contínuo, correlação e alertas

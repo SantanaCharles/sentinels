@@ -30,6 +30,10 @@ type Session struct {
 	In         io.Reader
 	// Doctor runs `sentinels doctor` against the current (saved) config.
 	Doctor func(ctx context.Context, configPath string)
+	// Installer plumbing; nil/empty = the real host (tests inject fakes).
+	Host     *HostFacts
+	Runner   Runner
+	HostRoot string
 
 	dirty bool
 }
@@ -68,6 +72,7 @@ func checkWritable(dir string) error {
 
 var sections = []struct{ key, label, desc string }{
 	{"quick", "⚡ Configuração rápida", "IA + um canal de alerta + teste, em 2 minutos"},
+	{"install", "🧩 Instalar componentes", "CrowdSec, Suricata, Falco, Trivy — instalar ou reconfigurar"},
 	{"ai", "🤖 Inteligência artificial", "provedor, modelo, chave e uso"},
 	{"notifications", "🔔 Notificações", "Telegram, Slack, Discord, e-mail, webhook"},
 	{"integrations", "🛰  Integrações", "Trivy, CrowdSec, Suricata, Falco"},
@@ -144,7 +149,7 @@ func (s *Session) Run(ctx context.Context, section string) error {
 
 // sectionAliases keeps the Portuguese names of earlier versions working.
 var sectionAliases = map[string]string{
-	"rapida": "quick", "ia": "ai", "notificacoes": "notifications", "integracoes": "integrations",
+	"rapida": "quick", "instalar": "install", "ia": "ai", "notificacoes": "notifications", "integracoes": "integrations",
 	"bancos": "databases", "varredura": "scan", "cofre": "vault",
 }
 
@@ -155,6 +160,8 @@ func (s *Session) runSection(ctx context.Context, key string) error {
 	switch key {
 	case "quick":
 		return s.quick(ctx)
+	case "install":
+		return s.sectionInstall(ctx)
 	case "ai":
 		return s.sectionAI(ctx)
 	case "notifications":
@@ -183,6 +190,13 @@ func (s *Session) quick(ctx context.Context) error {
 	if err := s.addNotifier(ctx); err != nil && !errors.Is(err, huh.ErrUserAborted) {
 		return err
 	}
+	// Real-time detection needs at least CrowdSec; offer it when we can install.
+	if f := s.facts(); f.Root && f.Apt && !f.InContainer && !f.Installed["crowdsec"] &&
+		s.confirm("Instalar o CrowdSec agora? Sem ele o agente só faz varreduras periódicas (não vê ataques em tempo real).", true) {
+		if err := s.installCrowdSec(ctx); err != nil && !errors.Is(err, huh.ErrUserAborted) {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -208,6 +222,7 @@ func (s *Session) save() error {
 	s.dirty = false
 	fmt.Fprintf(s.Out, "\n✔ Salvo: %s e %s (0600)\n", s.ConfigPath, s.EnvPath)
 	fmt.Fprintln(s.Out, "  Para aplicar: sudo systemctl restart sentinels · docker compose up -d --force-recreate sentinels · ou Restart do container no Portainer")
+	s.offerApply(context.Background())
 	return nil
 }
 

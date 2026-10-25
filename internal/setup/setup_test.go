@@ -23,6 +23,10 @@ func session(t *testing.T, answers ...string) (*Session, *bytes.Buffer) {
 	}
 	out := &bytes.Buffer{}
 	s.Accessible, s.Out, s.In = true, out, strings.NewReader(strings.Join(answers, "\n")+"\n")
+	// Never probe or touch the machine running the tests.
+	s.Host = &HostFacts{Installed: map[string]bool{}, PortFree: func(int) bool { return true }}
+	s.Runner = &fakeRunner{}
+	s.HostRoot = t.TempDir()
 	return s, out
 }
 

@@ -35,6 +35,21 @@ docker compose logs -f sentinels
   docker compose up -d --force-recreate sentinels
   ```
 
+### Instalar CrowdSec, Suricata e Falco (Docker ou Portainer)
+
+Esses componentes rodam no host, então instale também o comando `sentinels` na VPS (só o CLI,
+sem serviço — o agente continua no Docker):
+
+```bash
+curl -fsSL https://github.com/SantanaCharles/sentinels/releases/latest/download/install.sh -o install.sh
+sudo sh install.sh --cli-only
+cd ~/sentinels/deploy && sudo sentinels setup install
+```
+
+O assistente acha o `sentinels.yaml` da pasta atual, mostra cada comando antes de executar,
+grava a chave do CrowdSec no `sentinels.env`, libera o log do Suricata no `docker-compose.yml`
+e, ao salvar, oferece recriar o container do Sentinels.
+
 ## Opção A2 — Portainer (stack)
 
 1. **Stacks → Add stack**, nome `sentinels`, **Web editor**: cole o arquivo certo para o seu
