@@ -124,6 +124,8 @@ echo 'DOCKER_HOST=tcp://127.0.0.1:2375' | sudo tee -a /etc/sentinels/sentinels.e
 sudo systemctl restart sentinels
 ```
 
+Verificar, atualizar, testar a detecção e resolver problemas: [OPERACAO.md](OPERACAO.md).
+
 Atualizar: rode o `install.sh` de novo. Remover: `sudo sh install.sh --uninstall`
 (`--purge` apaga também configuração, memória e usuário).
 

@@ -12,6 +12,21 @@ e `sentinels doctor` mostra o que foi encontrado.
 
 Se for instalar só um: **CrowdSec**. Para containers em produção, some o **Falco**.
 
+## Jeito mais fácil: `sentinels setup install`
+
+```bash
+sudo sentinels setup install          # na instalação Docker: cd ~/sentinels/deploy antes
+```
+
+O assistente instala e configura cada motor mostrando os comandos e pedindo confirmação:
+CrowdSec (chave do Sentinels, logs do proxy em container, porta 8080, bloqueio no firewall com
+`DOCKER-USER` e o seu IP liberado), Suricata (interface, regras, volume no compose) e Falco
+(driver moderno e envio dos alertas). Na instalação via Docker/Portainer, instale antes só o
+comando no host: `sudo sh install.sh --cli-only`.
+
+As seções abaixo descrevem a instalação **manual**, para outras distribuições ou para quem
+prefere fazer à mão. Para testar a detecção depois, veja [OPERACAO.md](OPERACAO.md#3-testar-a-detecção-ataques-simulados).
+
 ## CrowdSec
 
 ```bash

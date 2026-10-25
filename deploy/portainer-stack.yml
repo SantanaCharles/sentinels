@@ -27,7 +27,7 @@ services:
     mem_limit: 64m
 
   sentinels:
-    image: ghcr.io/santanacharles/sentinels:v0.2.0
+    image: ghcr.io/santanacharles/sentinels:latest   # para fixar uma versão: :v0.2.3
     restart: unless-stopped
     depends_on: [socket-proxy]
     network_mode: host

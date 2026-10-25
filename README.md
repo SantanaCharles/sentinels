@@ -218,6 +218,7 @@ nothing injected by an attacker is rendered.
 ## Documentation (Portuguese)
 
 - [Installation](docs/INSTALACAO.md)
+- [Operations: check, upgrade, test detection, troubleshooting](docs/OPERACAO.md)
 - [Architecture](docs/ARQUITETURA.md)
 - [Security policy](SECURITY.md)
 - [Real-time integrations (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
