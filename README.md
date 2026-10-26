@@ -42,6 +42,7 @@ nowhere except where you configure it to.
 | Web | missing security headers, exposed server version, permissive CORS |
 | Database (PostgreSQL) | multi-tenant tables without Row-Level Security, RLS without `FORCE`, app connecting as owner/superuser |
 | Real time | CrowdSec, Suricata and Falco alerts correlated per container/app |
+| Inside apps and databases | SQL injection attempts in PostgreSQL and app logs (with the query), RLS violations, dangerous database commands, a logged-in user walking through other people's IDs (IDOR), new containers connecting to a database, a database or PHP opening a shell (Falco rules), CrowdSec WAF in front of Traefik |
 
 ## Knowledge bases
 
@@ -135,6 +136,7 @@ With chat enabled (`sentinels setup notifications` → 💬), the bot answers:
 | `/status` | server summary: last scan, open critical findings, events in the last 24 h |
 | `/scan` | acknowledges right away, runs a full scan and sends the status when it finishes |
 | `/inventory` · `/inventory php` | what is running: containers, image, stack, public ports and open problems |
+| `/blocked` · `/blocked ssh` | IPs CrowdSec is blocking right now (this server's detections and manual bans), scenario and time left; unblocking stays on SSH |
 | `/metrics` | fix times (MTTR), criticals open for over a week, false-positive rate, top attacker IPs and ATT&CK techniques |
 | `/doctor` | what Sentinels has active (Docker, Trivy, CrowdSec, Suricata, Falco, AI, channels) and the exact SSH commands to install what is missing |
 | `/findings` · `/findings critical` · `/findings all` | open findings |
@@ -223,6 +225,7 @@ nothing injected by an attacker is rendered.
 - [Architecture](docs/ARQUITETURA.md)
 - [Security policy](SECURITY.md)
 - [Real-time integrations (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
+- [Inside apps and databases: query patterns, IDOR, database clients, WAF](docs/APLICACOES.md)
 - [Writing skills](docs/SKILLS.md)
 - [MCP server (Claude Code, Claude Desktop, ChatGPT…)](docs/MCP.md)
 - [Telegram chat](docs/TELEGRAM.md)

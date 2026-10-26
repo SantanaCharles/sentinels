@@ -342,3 +342,11 @@ func TestTelegramButtonsOnEventAlerts(t *testing.T) {
 		t.Error("botões enviados sem conversa ativa")
 	}
 }
+
+func TestPlainText(t *testing.T) {
+	in := "## Análise\n• **Avaliação:** provável falso positivo\n• Risco: `PasswordAuthentication no` e 2 * 3 ** x"
+	want := "Análise\n• Avaliação: provável falso positivo\n• Risco: `PasswordAuthentication no` e 2 * 3 ** x"
+	if got := PlainText(in); got != want {
+		t.Errorf("PlainText:\n%s\nquer:\n%s", got, want)
+	}
+}

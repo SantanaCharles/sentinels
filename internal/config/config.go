@@ -62,7 +62,23 @@ type Integrations struct {
 	CrowdSec Toggle `yaml:"crowdsec"`
 	Suricata Toggle `yaml:"suricata"`
 	Falco    Toggle `yaml:"falco"`
+	// Containers watches inside app and database containers: their logs
+	// (Docker API, read-only) and who connects to each database (/proc).
+	Containers Workload `yaml:"containers"`
 }
+
+type Workload struct {
+	Enabled   string   `yaml:"enabled"`              // auto | true | false
+	Logs      *bool    `yaml:"logs,omitempty"`       // database and app logs (default on)
+	DBClients *bool    `yaml:"db_clients,omitempty"` // new clients of each database (default on)
+	Exclude   []string `yaml:"exclude,omitempty"`    // container or service names to skip
+}
+
+// Mode returns "true", "false" or "auto".
+func (w Workload) Mode() string { return Toggle{Enabled: w.Enabled}.Mode() }
+
+// On reads an optional switch that defaults to on.
+func On(b *bool) bool { return b == nil || *b }
 
 type Alerts struct {
 	MinSeverity string     `yaml:"min_severity"`
@@ -134,10 +150,11 @@ func Default() Config {
 		},
 		Storage: Storage{Path: "/var/lib/sentinels/sentinels.db", RetentionDays: 90},
 		Integrations: Integrations{
-			Trivy:    Toggle{Enabled: "auto"},
-			CrowdSec: Toggle{Enabled: "auto", URL: "http://127.0.0.1:8080", APIKeyEnv: "SENTINELS_CROWDSEC_KEY"},
-			Suricata: Toggle{Enabled: "auto", EveLog: "/var/log/suricata/eve.json"},
-			Falco:    Toggle{Enabled: "auto", Listen: "127.0.0.1:2801"},
+			Trivy:      Toggle{Enabled: "auto"},
+			CrowdSec:   Toggle{Enabled: "auto", URL: "http://127.0.0.1:8080", APIKeyEnv: "SENTINELS_CROWDSEC_KEY"},
+			Suricata:   Toggle{Enabled: "auto", EveLog: "/var/log/suricata/eve.json"},
+			Falco:      Toggle{Enabled: "auto", Listen: "127.0.0.1:2801"},
+			Containers: Workload{Enabled: "auto"},
 		},
 		Alerts: Alerts{MinSeverity: "high", DedupWindow: "15m"},
 		AI: AI{

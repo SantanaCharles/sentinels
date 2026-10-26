@@ -15,6 +15,7 @@ Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, ma
 | No chat | Resposta |
 |---------|----------|
 | `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
+| `/blocked` · `/bloqueados` · `/blocked 13.140` · `/blocked ssh` | IPs bloqueados agora pelo CrowdSec (detecções deste servidor e bans manuais), cenário, tempo restante e quantos eventos o IP gerou em 30 dias. A lista da comunidade do CrowdSec não entra. Desbloquear continua sendo no SSH: `sudo cscli decisions delete --ip IP` |
 | `/metrics` · `/metricas` | tempo médio de correção (MTTR), críticos abertos há mais de 7 dias, taxa de falso positivo, IPs que mais atacaram e técnicas ATT&CK mais vistas |
 | `/doctor` | o que o Sentinels tem ativo (Docker, Trivy, CrowdSec, Suricata, Falco, IA, canais) e os comandos exatos para instalar o que falta — você roda no SSH |
 | `/inventory` · `/inventory php` | o que está rodando: containers, imagem, stack, portas públicas e problemas de cada um (pacotes instalados direto no sistema não entram) |

@@ -199,6 +199,16 @@ func (s *Session) installCrowdSec(ctx context.Context) error {
 	if len(f.Proxies) == 0 {
 		fmt.Fprintln(s.Out, "Nenhum proxy (Traefik/Nginx/Caddy) encontrado em container; o CrowdSec segue protegendo SSH e o sistema.")
 	}
+	for _, p := range f.Proxies {
+		if p.Kind == "traefik" {
+			ok, err := s.offerAppSec(ctx, f)
+			if err != nil {
+				return err
+			}
+			reload = reload || ok
+			break
+		}
+	}
 
 	// Optional: actually block attackers.
 	if s.confirm("Bloquear automaticamente no firewall os IPs que atacarem? (recomendado)", true) {
@@ -233,6 +243,31 @@ func (s *Session) installCrowdSec(ctx context.Context) error {
 	}
 	s.note("CrowdSec pronto", "Teste depois de salvar e aplicar:\n  cscli decisions add --ip 192.0.2.10 --duration 5m --reason teste\nUm alerta deve chegar no Telegram em segundos. Limpe com:\n  cscli decisions delete --ip 192.0.2.10")
 	return nil
+}
+
+// offerAppSec enables CrowdSec's WAF and prints the Traefik side: requests
+// are inspected before reaching the app, logged-in users included.
+func (s *Session) offerAppSec(ctx context.Context, f HostFacts) (bool, error) {
+	if !s.confirm("Ativar o WAF do CrowdSec (AppSec) no Traefik? Bloqueia exploits conhecidos antes de chegarem à aplicação e bane quem insiste em SQL injection/XSS — inclusive usuários logados.", true) {
+		return false, nil
+	}
+	if f.DockerIP == "" {
+		s.note("WAF não ativado", "Não encontrei a interface docker0, por onde o Traefik alcança o CrowdSec do host.\nVeja docs/INTEGRACOES.md (WAF do CrowdSec) para configurar manualmente.")
+		return false, nil
+	}
+	listen := f.DockerIP + ":7422"
+	if ok, err := s.runPlan(ctx, "Regras do WAF do CrowdSec (AppSec)", appsecCollections); err != nil || !ok {
+		return false, err
+	}
+	if err := s.writeHostFile("/etc/crowdsec/acquis.d/sentinels-appsec.yaml", crowdsecAppsecAcquis(listen)); err != nil {
+		return false, err
+	}
+	key, err := s.runner().Output(ctx, "cscli bouncers delete traefik-appsec >/dev/null 2>&1 || true; cscli bouncers add traefik-appsec -o raw")
+	if err != nil || key == "" {
+		return false, fmt.Errorf("não consegui criar a chave do Traefik (cscli bouncers add traefik-appsec): %v", err)
+	}
+	s.note("Ligue o WAF no Traefik", traefikAppsecSnippet(listen, key))
+	return true, nil
 }
 
 // moveLAPI puts CrowdSec's Local API on a free port when 8080 was taken.
@@ -318,10 +353,15 @@ func (s *Session) installFalco(ctx context.Context) error {
 		if err != nil || !ok {
 			return err
 		}
-	} else if !s.confirm("Falco já instalado. Reconfigurar o envio de alertas para o Sentinels?", true) {
+	} else if !s.confirm("Falco já instalado. Reconfigurar o envio de alertas e atualizar as regras do Sentinels?", true) {
 		return nil
 	}
 	if err := s.writeHostFile("/etc/falco/config.d/sentinels.yaml", falcoConfig(fa.Listen)); err != nil {
+		return err
+	}
+	// Rules for app and database containers: PHP or a database opening a
+	// shell, webshells, databases connecting out, attack tools, miners.
+	if err := s.writeHostFile("/etc/falco/rules.d/sentinels.yaml", falcoRules); err != nil {
 		return err
 	}
 	if _, err := s.runPlan(ctx, "Ativar o Falco", "systemctl enable falco-modern-bpf.service\nsystemctl restart falco-modern-bpf.service"); err != nil {

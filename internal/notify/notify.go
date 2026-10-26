@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -117,4 +118,16 @@ func Truncate(s string, max int) string {
 		cut--
 	}
 	return s[:cut] + "…"
+}
+
+var (
+	mdBold = regexp.MustCompile(`\*\*([^*
+]+)\*\*`)
+	mdHeading = regexp.MustCompile(`(?m)^#{1,6}[ 	]+`)
+)
+
+// PlainText drops the Markdown the AI writes (bold, headings) for channels
+// that show text as is, like Telegram without parse_mode.
+func PlainText(s string) string {
+	return mdHeading.ReplaceAllString(mdBold.ReplaceAllString(s, "$1"), "")
 }

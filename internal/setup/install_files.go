@@ -1,6 +1,7 @@
 package setup
 
 import (
+	_ "embed"
 	"fmt"
 	"regexp"
 	"strings"
@@ -31,6 +32,12 @@ echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.
 apt-get update
 apt-get install -y trivy`
 
+// falcoRules is the Sentinels rule pack for app and database containers,
+// written to /etc/falco/rules.d/sentinels.yaml.
+//
+//go:embed falco_rules.yaml
+var falcoRules string
+
 // crowdsecAcquis reads a proxy container's log through Docker.
 func crowdsecAcquis(p Proxy) string {
 	return fmt.Sprintf(`# Gerado pelo sentinels setup: logs de acesso do %s
@@ -40,6 +47,58 @@ container_name:
 labels:
   type: %s
 `, p.Container, p.Container, p.Kind)
+}
+
+// appsecCollections: virtual patching blocks known CVEs in-band; the OWASP
+// CRS only observes (out-of-band) and bans an IP after repeated SQLi/XSS, so
+// a false positive never breaks a legitimate request.
+const appsecCollections = `cscli collections install crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs`
+
+// traefikPluginVersion is pinned on purpose; see
+// https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/releases before bumping.
+const traefikPluginVersion = "v1.7.1"
+
+// crowdsecAppsecAcquis turns on CrowdSec's WAF component. It listens on the
+// docker0 address so the Traefik container can reach it, but not the internet.
+func crowdsecAppsecAcquis(listen string) string {
+	return fmt.Sprintf(`# Gerado pelo sentinels setup: WAF do CrowdSec (AppSec) consultado pelo Traefik
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - crowdsecurity/crs
+labels:
+  type: appsec
+listen_addr: %s
+source: appsec
+`, listen)
+}
+
+// traefikAppsecSnippet is what the admin adds to the Traefik stack. Sentinels
+// never edits the proxy: a mistake there takes every site down.
+func traefikAppsecSnippet(listen, key string) string {
+	return fmt.Sprintf(`1) No serviço do Traefik, acrescente aos argumentos (command):
+  - --experimental.plugins.crowdsec.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+  - --experimental.plugins.crowdsec.version=%s
+
+2) Nos labels do serviço do Traefik (define o middleware):
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.enabled=true
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.crowdsecmode=appsec
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.crowdsecappsecenabled=true
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.crowdsecappsechost=%s
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.crowdsecappsecunreachableblock=false
+  - traefik.http.middlewares.crowdsec.plugin.crowdsec.crowdseclapikey=%s
+
+3) Em cada aplicação a proteger, inclua o middleware no router:
+  - traefik.http.routers.<app>.middlewares=crowdsec@docker
+    (Traefik v3 no Swarm com --providers.swarm: crowdsec@swarm)
+
+Atualize a stack e teste (deve responder 403):
+  curl -s -o /dev/null -w "%%{http_code}\n" https://seu-site/.env
+
+Como funciona: exploits de CVEs conhecidos são bloqueados na hora (403). SQL injection
+e XSS genéricos (OWASP CRS) não bloqueiam a requisição, para não barrar usuário legítimo:
+após algumas tentativas o IP é banido e o alerta chega no Telegram.
+Se o CrowdSec cair, os sites continuam no ar (unreachableblock=false).
+Guarde a chave acima: ela só aparece agora (nova: cscli bouncers add traefik-appsec).`, traefikPluginVersion, listen, key)
 }
 
 // crowdsecWhitelist keeps the administrator's own IP from ever being banned.
@@ -55,9 +114,12 @@ whitelist:
 }
 
 // falcoConfig is a config.d drop-in: Falco sends JSON alerts to the agent.
+// rule_matching: all lets the Sentinels rules fire on events that a default
+// rule (with a lower priority) already matched.
 func falcoConfig(listen string) string {
 	return fmt.Sprintf(`# Gerado pelo sentinels setup: alertas do Falco para o Sentinels
 json_output: true
+rule_matching: all
 http_output:
   enabled: true
   url: "http://%s/falco"

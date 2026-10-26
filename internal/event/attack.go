@@ -25,6 +25,8 @@ var Techniques = map[string]Technique{
 	"T1003":     {"OS Credential Dumping", "Credential Access"},
 	"T1552":     {"Unsecured Credentials", "Credential Access"},
 	"T1059":     {"Command and Scripting Interpreter", "Execution"},
+	"T1021":     {"Remote Services", "Lateral Movement"},
+	"T1213":     {"Data from Information Repositories", "Collection"},
 	"T1053":     {"Scheduled Task/Job", "Persistence"},
 	"T1098":     {"Account Manipulation", "Persistence"},
 	"T1505.003": {"Web Shell", "Persistence"},
@@ -64,7 +66,7 @@ var keywordRules = []struct {
 	technique string
 }{
 	{[]string{"webshell", "web shell", "backdoor", "backdoors"}, "T1505.003"},
-	{[]string{"cve", "exploit", "exploitation", "sqli", "sql injection", "xss", "traversal", "lfi", "rfi", "rce",
+	{[]string{"cve", "exploit", "exploitation", "appsec", "vpatch", "virtual patching", "sqli", "sql injection", "xss", "traversal", "lfi", "rfi", "rce",
 		"injection", "web application attack", "web specific apps"}, "T1190"},
 	{[]string{"bf", "bruteforce", "brute force", "password spray"}, "T1110"},
 	{[]string{"privilege gain", "privilege escalation"}, "T1068"},

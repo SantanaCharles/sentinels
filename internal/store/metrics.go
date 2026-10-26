@@ -155,3 +155,23 @@ func (s *Store) Metrics(ctx context.Context, now time.Time) (*Metrics, error) {
 	}
 	return m, nil
 }
+
+// EventsByIP sums the occurrences of each source IP since the given time.
+func (s *Store) EventsByIP(ctx context.Context, since time.Time) (map[string]int, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT source_ip, SUM(count) FROM events WHERE source_ip != '' AND last_seen >= ? GROUP BY source_ip`, since.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var ip string
+		var n int
+		if err := rows.Scan(&ip, &n); err != nil {
+			return nil, err
+		}
+		out[ip] = n
+	}
+	return out, rows.Err()
+}

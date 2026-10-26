@@ -15,7 +15,7 @@ services:
     image: tecnativa/docker-socket-proxy:v0.5.0
     restart: unless-stopped
     environment:
-      CONTAINERS: 1   # GET /containers/json e /containers/{id}/json
+      CONTAINERS: 1   # GET /containers/json, /containers/{id}/json e /logs
       IMAGES: 1       # Trivy lê as imagens locais
       SERVICES: 1     # leitura dos serviços do Swarm (domínios do Traefik)
       POST: 0         # nenhuma escrita
@@ -42,6 +42,8 @@ services:
     volumes:
       - ./sentinels.yaml:/etc/sentinels/sentinels.yaml:ro
       - sentinels-data:/var/lib/sentinels
+      # /proc do host (somente leitura): quem conecta em cada banco de dados
+      - /proc:/host/proc:ro
       # Opcional: alertas do Suricata
       # - /var/log/suricata:/var/log/suricata:ro
     read_only: true

@@ -17,6 +17,9 @@ integrations:
   crowdsec: { enabled: auto, url: http://127.0.0.1:8080, api_key_env: SENTINELS_CROWDSEC_KEY }
   suricata: { enabled: auto, eve_log: /var/log/suricata/eve.json }
   falco:    { enabled: auto, listen: 127.0.0.1:2801 }
+  # Dentro das aplicações e bancos (docs/APLICACOES.md): logs do Postgres e das apps
+  # pela API do Docker e quem conecta em cada banco. Desligue partes com logs/db_clients: false.
+  containers: { enabled: auto }
 
 alerts:
   min_severity: high

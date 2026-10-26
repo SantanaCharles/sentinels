@@ -12,6 +12,10 @@ e `sentinels doctor` mostra o que foi encontrado.
 
 Se for instalar só um: **CrowdSec**. Para containers em produção, some o **Falco**.
 
+Sem instalar nada, o agente também lê os logs do Postgres e das aplicações e vigia quem conecta
+em cada banco: veja [APLICACOES.md](APLICACOES.md), que também explica as regras do Falco e o WAF
+do CrowdSec instalados pelo `setup install`.
+
 ## Jeito mais fácil: `sentinels setup install`
 
 ```bash
@@ -45,6 +49,28 @@ O Sentinels lê apenas as decisões geradas **neste servidor** (origem `crowdsec
 comunitária (CAPI) é ignorada para não gerar milhares de alertas. Para o CrowdSec também
 bloquear, instale um bouncer (ex.: `crowdsec-firewall-bouncer-iptables`) — o Sentinels não bloqueia.
 
+### WAF do CrowdSec (AppSec) com Traefik
+
+O `setup install` oferece ativar quando encontra o Traefik. Manualmente:
+
+```bash
+sudo cscli collections install crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs
+ip -4 addr show docker0          # ex.: 172.17.0.1
+sudo tee /etc/crowdsec/acquis.d/sentinels-appsec.yaml <<'EOF'
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - crowdsecurity/crs
+labels:
+  type: appsec
+listen_addr: 172.17.0.1:7422
+source: appsec
+EOF
+sudo systemctl reload crowdsec
+sudo cscli bouncers add traefik-appsec      # chave para o plugin do Traefik
+```
+
+Configuração do Traefik e comportamento: [APLICACOES.md](APLICACOES.md#4-waf-do-crowdsec-no-traefik).
+
 ## Suricata
 
 ```bash
@@ -74,6 +100,10 @@ http_output:
 
 O receptor do Sentinels só aceita `127.0.0.1`/`::1`: qualquer processo que alcance essa porta
 consegue injetar eventos, então ela nunca deve ficar exposta.
+
+O `sentinels setup install` grava isso em `/etc/falco/config.d/sentinels.yaml` (com
+`rule_matching: all`) e instala as regras do Sentinels para apps e bancos em
+`/etc/falco/rules.d/sentinels.yaml` — detalhes em [APLICACOES.md](APLICACOES.md#3-dentro-dos-containers-falco).
 
 ## Como os eventos são tratados
 

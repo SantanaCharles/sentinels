@@ -63,7 +63,7 @@ func (t *Telegram) Send(ctx context.Context, m Message) error {
 	if base == "" {
 		base = "https://api.telegram.org"
 	}
-	text := Text(m)
+	text := PlainText(Text(m))
 	params := map[string]any{"chat_id": t.ChatID, "disable_web_page_preview": true}
 	if t.Buttons && m.EventID > 0 {
 		// The buttons replace the "sentinels feedback" hint; the bot in

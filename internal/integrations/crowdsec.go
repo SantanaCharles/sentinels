@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SantanaCharles/sentinels/internal/event"
@@ -21,7 +23,25 @@ type CrowdSec struct {
 	APIKey   string
 	Interval time.Duration
 	client   *http.Client
+
+	mu     sync.Mutex
+	active map[int64]Blocked // local decisions in force, for /blocked
+	synced bool              // the startup snapshot was read
 }
+
+// Blocked is a decision currently enforced by CrowdSec on this server.
+type Blocked struct {
+	ID       int64
+	Value    string // usually an IP; a range or country depending on Scope
+	Scope    string
+	Type     string // ban, captcha…
+	Scenario string
+	Origin   string // crowdsec (detected here) or cscli (manual)
+	Until    time.Time
+}
+
+// maxTracked bounds memory if CrowdSec is flooded with decisions.
+const maxTracked = 100_000
 
 func (c *CrowdSec) Name() string { return "crowdsec" }
 
@@ -50,13 +70,14 @@ func (c *CrowdSec) Run(ctx context.Context, out chan<- event.Event) error {
 	tick := time.NewTicker(c.Interval)
 	defer tick.Stop()
 	for {
-		decisions, err := c.poll(ctx, startup)
+		decisions, deleted, err := c.poll(ctx, startup)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
 			return err
 		}
+		c.track(decisions, deleted, time.Now())
 		// Decisions active at startup were already handled by CrowdSec
 		// before Sentinels started; only report what happens from now on.
 		for _, d := range decisions {
@@ -83,29 +104,71 @@ func (c *CrowdSec) Run(ctx context.Context, out chan<- event.Event) error {
 	}
 }
 
-func (c *CrowdSec) poll(ctx context.Context, startup bool) ([]csDecision, error) {
+// track keeps the set of decisions in force: the stream sends each new
+// decision once and lists it again under "deleted" when it expires or is removed.
+func (c *CrowdSec) track(added, deleted []csDecision, now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.active == nil {
+		c.active = map[int64]Blocked{}
+	}
+	for _, d := range deleted {
+		delete(c.active, d.ID)
+	}
+	for _, d := range added {
+		if !localOrigins[d.Origin] || len(c.active) >= maxTracked {
+			continue
+		}
+		left, err := time.ParseDuration(d.Duration)
+		if err != nil || left <= 0 {
+			continue
+		}
+		c.active[d.ID] = Blocked{ID: d.ID, Value: d.Value, Scope: d.Scope, Type: d.Type,
+			Scenario: d.Scenario, Origin: d.Origin, Until: now.Add(left)}
+	}
+	c.synced = true
+}
+
+// Blocked returns the decisions in force, newest first; ok is false until
+// the first answer from the Local API arrives.
+func (c *CrowdSec) Blocked(now time.Time) (list []Blocked, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, b := range c.active {
+		if !b.Until.After(now) {
+			delete(c.active, id)
+			continue
+		}
+		list = append(list, b)
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].ID > list[j].ID })
+	return list, c.synced
+}
+
+func (c *CrowdSec) poll(ctx context.Context, startup bool) (added, deleted []csDecision, err error) {
 	u := strings.TrimRight(c.URL, "/") + fmt.Sprintf("/v1/decisions/stream?startup=%t&origins=crowdsec,cscli", startup)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.Header.Set("X-Api-Key", c.APIKey)
 	req.Header.Set("User-Agent", "Sentinels/0.1")
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("crowdsec: %w", err)
+		return nil, nil, fmt.Errorf("crowdsec: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("crowdsec: HTTP %d (verifique a chave do bouncer)", resp.StatusCode)
+		return nil, nil, fmt.Errorf("crowdsec: HTTP %d (verifique a chave do bouncer)", resp.StatusCode)
 	}
 	var body struct {
-		New []csDecision `json:"new"`
+		New     []csDecision `json:"new"`
+		Deleted []csDecision `json:"deleted"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<20)).Decode(&body); err != nil {
-		return nil, fmt.Errorf("crowdsec: resposta inválida: %w", err)
+		return nil, nil, fmt.Errorf("crowdsec: resposta inválida: %w", err)
 	}
-	return body.New, nil
+	return body.New, body.Deleted, nil
 }
 
 func decisionEvent(d csDecision) event.Event {

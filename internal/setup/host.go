@@ -59,6 +59,7 @@ type HostFacts struct {
 	Proxies     []Proxy         // reverse proxies running in Docker
 	PortFree    func(int) bool  // true when 127.0.0.1:port can be bound
 	Iface       string          // interface of the default route
+	DockerIP    string          // docker0 address: host services reachable from containers
 	AdminIP     string          // client IP of the current SSH session
 	ComposeFile string          // docker-compose.yml next to the config, if any
 	SystemdUnit bool            // sentinels.service is installed
@@ -100,6 +101,16 @@ func probeHost(configPath string) HostFacts {
 	}
 	if out, err := exec.Command("sh", "-c", "ip route show default 2>/dev/null | awk '{print $5; exit}'").Output(); err == nil {
 		f.Iface = strings.TrimSpace(string(out))
+	}
+	if iface, err := net.InterfaceByName("docker0"); err == nil {
+		if addrs, err := iface.Addrs(); err == nil {
+			for _, a := range addrs {
+				if n, ok := a.(*net.IPNet); ok && n.IP.To4() != nil {
+					f.DockerIP = n.IP.String()
+					break
+				}
+			}
+		}
 	}
 	if c := strings.Fields(os.Getenv("SSH_CLIENT")); len(c) > 0 && net.ParseIP(c[0]) != nil {
 		f.AdminIP = c[0]

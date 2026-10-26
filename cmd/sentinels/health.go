@@ -77,6 +77,12 @@ func healthFunc(cfg config.Config, sources []integrations.Source, chans []notify
 			add("Falco", false, "sem detecção do que acontece dentro dos containers (opcional)",
 				"instale: https://falco.org/docs/setup/packages/\n/etc/falco/falco.yaml: json_output: true e\n  http_output: {enabled: true, url: \"http://"+cfg.Integrations.Falco.Listen+"/falco\"}\nDocker: no sentinels.yaml use integrations.falco.enabled: \"true\"")
 		}
+		if active["containers"] {
+			rt++
+			add("Bancos e apps", true, "logs do Postgres e das aplicações, novos clientes dos bancos", "")
+		} else if cfg.Integrations.Containers.Mode() != "false" {
+			add("Bancos e apps", false, "sem leitura dos logs dos bancos/apps (precisa do Docker)", "confira o socket-proxy: docker compose ps")
+		}
 		if rt == 0 {
 			add("Tempo real", false, "nenhum motor ativo: só varreduras periódicas", "instale ao menos o CrowdSec (acima) — "+integrationsDoc)
 		}

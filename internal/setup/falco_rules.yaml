@@ -1,0 +1,141 @@
+# Sentinels — regras do Falco para aplicações e bancos em containers.
+# Instaladas pelo `sentinels setup install` em /etc/falco/rules.d/sentinels.yaml
+# (reinstalar sobrescreve; para ajustes, use /etc/falco/rules.d/sentinels-local.yaml).
+#
+# Completam as regras padrão do Falco. Precisam de `rule_matching: all` (o
+# setup grava em /etc/falco/config.d/sentinels.yaml): sem isso, a primeira regra
+# que casa com o evento ganha — e a padrão "Run shell untrusted" só tem
+# prioridade Notice. A técnica MITRE ATT&CK vai nas tags.
+
+- list: sentinels_shells
+  items: [sh, bash, dash, ash, zsh, ksh, csh, tcsh, busybox]
+
+- list: sentinels_php_procs
+  items: [php, lsphp, frankenphp, php-cgi]
+
+- list: sentinels_app_procs
+  items: [node, bun, deno, python, python3, gunicorn, uwsgi, ruby, puma, java]
+
+- list: sentinels_db_procs
+  items: [postgres, postmaster, mysqld, mariadbd, mongod, redis-server, valkey-server, clickhouse-serv]
+
+- list: sentinels_attack_tools
+  items: [nmap, masscan, zmap, sqlmap, hydra, medusa, nikto, gobuster, ffuf, dirb, wfuzz, nuclei,
+          john, hashcat, chisel, frpc, ngrok, linpeas.sh, pspy, pspy64, socat, ncat]
+
+- list: sentinels_miners
+  items: [xmrig, minerd, cpuminer, ccminer, nbminer, t-rex, lolminer, kdevtmpfsi, kinsing]
+
+- rule: Sentinels database spawned shell
+  desc: >
+    O banco (Postgres, MySQL, Mongo, Redis) abriu um shell. Bancos não fazem isso: é o sinal de
+    COPY ... TO PROGRAM, função maliciosa ou Redis explorado. Exceção: archive_command/restore_command do Postgres.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and proc.pname in (sentinels_db_procs)
+    and proc.name in (sentinels_shells)
+    and not proc.pcmdline contains "archiver"
+    and not proc.pcmdline contains "startup"
+  output: >
+    Banco %proc.pname abriu um shell no container %container.name: %proc.cmdline
+    (imagem=%container.image.repository usuário=%user.name)
+  priority: CRITICAL
+  tags: [container, database, mitre_execution, T1059]
+
+- rule: Sentinels PHP spawned shell
+  desc: >
+    O PHP (php-fpm, mod_php, FrankenPHP) abriu um shell. É o sinal clássico de execução remota de código
+    ou webshell (ex.: PHP2Shell). O mail() do PHP chama o sendmail por um shell e é ignorado.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and (proc.pname startswith "php-fpm" or proc.pname in (sentinels_php_procs))
+    and proc.name in (sentinels_shells)
+    and not proc.cmdline contains "sendmail"
+  output: >
+    PHP abriu um shell no container %container.name: %proc.cmdline
+    (pai=%proc.pname imagem=%container.image.repository usuário=%user.name)
+  priority: CRITICAL
+  tags: [container, web, mitre_persistence, T1505.003]
+
+- rule: Sentinels app spawned shell
+  desc: >
+    O processo de uma aplicação Node, Python, Ruby ou Java abriu um shell. Pode ser legítimo (scripts que
+    chamam programas), mas também é como uma execução remota de código aparece. Silencie no Telegram se for normal.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and proc.pname in (sentinels_app_procs)
+    and proc.name in (sentinels_shells)
+  output: >
+    Aplicação %proc.pname abriu um shell no container %container.name: %proc.cmdline
+    (imagem=%container.image.repository usuário=%user.name)
+  priority: WARNING
+  tags: [container, app, mitre_execution, T1059]
+
+- rule: Sentinels script written by web server
+  desc: >
+    O servidor web gravou um script (.php, .phtml, .phar, .jsp) dentro do site — é assim que um webshell é
+    instalado. Atualizações pelo painel (ex.: WordPress) também gravam: confira se foi você.
+  condition: >
+    evt.type in (open, openat, openat2) and evt.is_open_write=true and fd.typechar='f' and fd.num>=0
+    and container.id != host
+    and (proc.name startswith "php-fpm" or proc.name in (sentinels_php_procs) or proc.name in (apache2, httpd, nginx))
+    and (fd.name endswith ".php" or fd.name endswith ".phtml" or fd.name endswith ".phar" or fd.name endswith ".jsp")
+    and not fd.name startswith "/tmp/"
+    and not fd.name contains "/cache/"
+    and not fd.name contains "/storage/framework/"
+  output: >
+    Script gravado pelo servidor web no container %container.name: %fd.name
+    (processo=%proc.name imagem=%container.image.repository)
+  priority: WARNING
+  tags: [container, web, mitre_persistence, T1505.003]
+
+- rule: Sentinels database connecting out
+  desc: >
+    O processo do banco abriu conexão para um endereço da internet. Bancos só recebem conexões: saída
+    indica extração de dados ou shell reverso (COPY ... PROGRAM, UDF maliciosa, Redis explorado).
+  condition: >
+    evt.type = connect and container.id != host
+    and proc.name in (sentinels_db_procs)
+    and (fd.typechar = 4 or fd.typechar = 6)
+    and fd.ip != "0.0.0.0" and fd.net != "127.0.0.0/8"
+    and not fd.snet in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10")
+    and (evt.rawres >= 0 or evt.res = EINPROGRESS)
+  output: >
+    Banco %proc.name no container %container.name conectou em %fd.sip:%fd.sport
+    (imagem=%container.image.repository)
+  priority: CRITICAL
+  tags: [container, database, mitre_exfiltration, T1041]
+
+- rule: Sentinels attack tool in container
+  desc: Ferramenta de varredura, força bruta ou túnel executada dentro de um container.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and proc.name in (sentinels_attack_tools)
+  output: >
+    Ferramenta de ataque %proc.name executada no container %container.name: %proc.cmdline
+    (pai=%proc.pname imagem=%container.image.repository)
+  priority: CRITICAL
+  tags: [container, mitre_discovery, T1046]
+
+- rule: Sentinels crypto miner in container
+  desc: Minerador de criptomoeda executado dentro de um container.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and (proc.name in (sentinels_miners) or proc.cmdline contains "stratum+tcp")
+  output: >
+    Minerador %proc.name no container %container.name: %proc.cmdline (imagem=%container.image.repository)
+  priority: CRITICAL
+  tags: [container, mitre_impact, T1496]
+
+- rule: Sentinels package install in running container
+  desc: >
+    Instalação de pacote com o container já rodando. Atacantes instalam ferramentas assim; imagens bem
+    feitas trazem tudo pronto. Algumas imagens instalam pacotes ao iniciar: silencie se for o caso.
+  condition: >
+    evt.type in (execve, execveat) and container.id != host
+    and ((proc.name in (apt, apt-get, yum, dnf, microdnf, pip, pip3, gem) and proc.cmdline contains " install")
+         or (proc.name = apk and proc.cmdline contains " add"))
+  output: >
+    Pacote instalado no container %container.name: %proc.cmdline (imagem=%container.image.repository)
+  priority: WARNING
+  tags: [container, mitre_command_and_control, T1105]

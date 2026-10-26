@@ -17,6 +17,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/event"
 	"github.com/SantanaCharles/sentinels/internal/finding"
 	"github.com/SantanaCharles/sentinels/internal/fingerprint"
+	"github.com/SantanaCharles/sentinels/internal/integrations"
 	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
 	"github.com/SantanaCharles/sentinels/internal/watch"
@@ -390,5 +391,44 @@ func TestMetricsCommand(t *testing.T) {
 	}
 	if strings.Contains(out, "segredo123abc") {
 		t.Error("vazou segredo")
+	}
+}
+
+type fakeBlocklist struct {
+	list []integrations.Blocked
+	ok   bool
+}
+
+func (f fakeBlocklist) Blocked(time.Time) ([]integrations.Blocked, bool) { return f.list, f.ok }
+
+func TestBlockedCommand(t *testing.T) {
+	bot, _, _, _ := setup(t)
+	if out := bot.blocked(context.Background(), nil).text; !strings.Contains(out, "não está ativo") {
+		t.Errorf("sem CrowdSec: %s", out)
+	}
+	bot.Blocklist = fakeBlocklist{}
+	if out := bot.blocked(context.Background(), nil).text; !strings.Contains(out, "Ainda lendo") {
+		t.Errorf("antes da primeira leitura: %s", out)
+	}
+	now := time.Now()
+	bot.Blocklist = fakeBlocklist{ok: true, list: []integrations.Blocked{
+		{ID: 9, Value: "203.0.113.7", Scope: "Ip", Type: "ban", Scenario: "crowdsecurity/ssh-slow-bf", Origin: "crowdsec", Until: now.Add(3*time.Hour + 59*time.Minute + 30*time.Second)},
+		{ID: 5, Value: "198.51.100.9", Scope: "Ip", Type: "ban", Scenario: "", Origin: "cscli", Until: now.Add(73 * time.Hour)},
+		{ID: 3, Value: "192.0.2.0/24", Scope: "Range", Type: "captcha", Scenario: "crowdsecurity/http-probing", Origin: "crowdsec", Until: now.Add(10 * time.Minute)},
+	}}
+	out := bot.blocked(context.Background(), nil).text
+	for _, want := range []string{"⛔ 3 bloqueio(s) ativo(s) — vps-01", "203.0.113.7 — ssh-slow-bf — mais 3h59m",
+		"198.51.100.9 — manual — mais 3d · manual", "Range 192.0.2.0/24 — http-probing — mais 10m · captcha",
+		"cscli decisions delete --ip"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("/blocked sem %q:\n%s", want, out)
+		}
+	}
+	ssh := bot.blocked(context.Background(), []string{"ssh"}).text
+	if !strings.Contains(ssh, "⛔ 1 bloqueio") || strings.Contains(ssh, "198.51.100.9") {
+		t.Errorf("filtro:\n%s", ssh)
+	}
+	if out := bot.blocked(context.Background(), []string{"10.9.9.9"}).text; !strings.Contains(out, "Nenhum bloqueio ativo") {
+		t.Errorf("filtro sem resultado: %s", out)
 	}
 }

@@ -55,12 +55,13 @@ func readHost(t *testing.T, s *Session, p string) string {
 }
 
 func TestInstallCrowdSecFullFlow(t *testing.T) {
-	// install yes, proxy logs yes, firewall yes, run bouncer yes, restart bouncer yes, reload yes, save yes
-	s, out := session(t, "y", "y", "y", "y", "y", "y", "y", "y")
+	// install, proxy logs, collection, WAF, WAF rules, firewall, bouncer, restart bouncer, reload: all yes
+	s, out := session(t, "y", "y", "y", "y", "y", "y", "y", "y", "y", "y")
 	s.Host = host(s.HostRoot, "docker")
+	s.Host.DockerIP = "172.17.0.1"
 	s.Host.Proxies = []Proxy{{"traefik_traefik.1.abc", "traefik"}}
 	s.Host.AdminIP = "191.8.223.230"
-	fr := &fakeRunner{outputs: map[string]string{"bouncers add sentinels": "CHAVE-DO-BOUNCER-123"}}
+	fr := &fakeRunner{outputs: map[string]string{"bouncers add sentinels": "CHAVE-DO-BOUNCER-123", "bouncers add traefik-appsec": "CHAVE-TRAEFIK-456"}}
 	s.Runner = fr
 	os.MkdirAll(s.hostPath("/etc/crowdsec/bouncers"), 0o755)
 	os.WriteFile(s.hostPath("/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"), []byte("mode: iptables\niptables_chains:\n  - INPUT\n"), 0o600)
@@ -88,6 +89,13 @@ func TestInstallCrowdSecFullFlow(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "--accesslog=true") {
 		t.Error("faltou o aviso de ativar o access log do Traefik")
+	}
+	if acq := readHost(t, s, "/etc/crowdsec/acquis.d/sentinels-appsec.yaml"); !strings.Contains(acq, "listen_addr: 172.17.0.1:7422") || !strings.Contains(acq, "source: appsec") {
+		t.Errorf("acquis do WAF:\n%s", acq)
+	}
+	if !fr.ran("appsec-virtual-patching") || !strings.Contains(out.String(), "crowdsecappsechost=172.17.0.1:7422") ||
+		!strings.Contains(out.String(), "crowdseclapikey=CHAVE-TRAEFIK-456") || !strings.Contains(out.String(), "version="+traefikPluginVersion) {
+		t.Errorf("WAF: coleções ou instruções do Traefik faltando:\n%s", out.String())
 	}
 }
 
@@ -151,8 +159,11 @@ func TestSuricataAndFalco(t *testing.T) {
 	if err := s.installFalco(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if fc := readHost(t, s, "/etc/falco/config.d/sentinels.yaml"); !strings.Contains(fc, `url: "http://127.0.0.1:2801/falco"`) {
+	if fc := readHost(t, s, "/etc/falco/config.d/sentinels.yaml"); !strings.Contains(fc, `url: "http://127.0.0.1:2801/falco"`) || !strings.Contains(fc, "rule_matching: all") {
 		t.Errorf("config do Falco:\n%s", fc)
+	}
+	if rules := readHost(t, s, "/etc/falco/rules.d/sentinels.yaml"); !strings.Contains(rules, "- rule: Sentinels database spawned shell") || !strings.Contains(rules, "T1505.003") {
+		t.Errorf("regras do Falco não gravadas:\n%.300s", rules)
 	}
 	if !fr.ran("FALCO_DRIVER_CHOICE=modern_ebpf") || s.Cfg.Integrations.Falco.Enabled != "true" {
 		t.Error("Falco não instalado/habilitado")

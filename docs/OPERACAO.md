@@ -72,9 +72,10 @@ curl -s https://api.github.com/repos/SantanaCharles/sentinels/releases/latest | 
 
 Configuração e memória ficam no volume/pasta e são preservadas.
 
-> **Vindo da v0.2.2 ou anterior:** adicione `SERVICES: 1` no `environment` do `socket-proxy` (ou copie o
-> `deploy/` novo) e recrie os dois containers com `docker compose up -d --force-recreate`. Sem isso tudo
-> funciona, só os domínios dos serviços do Swarm não são descobertos.
+> **Vindo da v0.2.2 ou anterior:** copie o `deploy/` novo, ou faça à mão no `docker-compose.yml`:
+> `SERVICES: 1` no `environment` do `socket-proxy` (domínios dos serviços do Swarm) e
+> `- /proc:/host/proc:ro` nos `volumes` do `sentinels` (quem conecta em cada banco). Depois
+> `docker compose up -d --force-recreate`. Sem isso o resto funciona normalmente.
 
 ## 3. Testar a detecção (ataques simulados)
 
@@ -90,6 +91,9 @@ Teste só o **seu** servidor.
 | Varredura web | de outra rede: `for i in $(seq 1 30); do curl -s -o /dev/null https://SEU-SITE/nao-existe-$i; done` | `Active Scanning (T1595)`, nível Médio — veja em `/events` |
 | Suricata | na VPS: `curl http://testmynids.org/uid/index.html` | regra *GPL ATTACK_RESPONSE id check returned root* em `/events` |
 | Falco | `docker run -it --rm falcosecurity/event-generator run syscall` | vários alertas de comportamento em `/events` |
+| SQL injection no banco | `docker exec <container-do-postgres> psql -U <usuario> -c "SELECT 1 UNION SELECT usename, passwd FROM pg_shadow--"` | `[CRÍTICO] postgres-sqli-attempt` com a consulta |
+| PHP abrindo shell (Falco) | `docker run --rm php:8.3-cli-alpine php -r 'echo shell_exec("id");'` | `[CRÍTICO] Sentinels PHP spawned shell` |
+| WAF (CrowdSec + Traefik) | de outra rede: `curl -s -o /dev/null -w '%{http_code}' https://SEU-SITE/.env` | `403` |
 | Configuração | `docker run -d --name teste-sentinels --privileged alpine:3.20 sleep 900` e `/scan` | `Novo achado: Container privilegiado`; depois `docker rm -f teste-sentinels` |
 
 Alertas a partir de **Alto** vão para o Telegram; os de nível Médio ficam em `/events`. Depois,
@@ -113,3 +117,6 @@ marque o evento como **✅ Ataque real** no Telegram.
 | Primeira varredura demorada | o Trivy baixa a base de vulnerabilidades | normal; as próximas são rápidas |
 | Muitas CVEs no relatório | imagens desatualizadas | atualize as imagens base; CVEs do kernel dentro das imagens já são ignoradas |
 | CrowdSec não sobe após instalar | porta 8080 ocupada | o `setup install` move a API para outra porta; rode-o de novo |
+| Log: "conexões dos bancos indisponíveis" | o container do agente não vê o `/proc` do host | acrescente `- /proc:/host/proc:ro` aos volumes do serviço `sentinels` (já vem no `deploy/` novo) e recrie |
+| Alerta `db-new-client` de um serviço que você mesmo subiu | a linha de base aprendeu antes dele existir | marque 🔕 Falso positivo; para reaprender tudo, apague `/var/lib/sentinels/db-clients.json` |
+| Nenhum alerta de banco com SQL injection testado | o container não é Postgres, ou a consulta não deu erro | só consultas com erro aparecem no log; veja docs/APLICACOES.md |

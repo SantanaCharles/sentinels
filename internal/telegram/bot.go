@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/SantanaCharles/sentinels/internal/ai"
+	"github.com/SantanaCharles/sentinels/internal/notify"
 	"github.com/SantanaCharles/sentinels/internal/scan"
 	"github.com/SantanaCharles/sentinels/internal/store"
 	"github.com/SantanaCharles/sentinels/internal/watch"
@@ -37,6 +38,7 @@ type Bot struct {
 	MaxAIPerHour int
 	Scanner      Scanner    // nil: /scan is unavailable
 	Health       HealthFunc // nil: /doctor is unavailable
+	Blocklist    Blocklist  // nil: CrowdSec is not active
 	Log          func(format string, args ...any)
 
 	client   *http.Client
@@ -264,6 +266,7 @@ func (b *Bot) registerCommands(ctx context.Context) {
 		{"command": "scan", "description": "Full scan now (status when it finishes)"},
 		{"command": "inventory", "description": "What is running: containers, stack, ports"},
 		{"command": "metrics", "description": "Fix times, false positives, top attackers"},
+		{"command": "blocked", "description": "IPs blocked right now by CrowdSec"},
 		{"command": "doctor", "description": "What Sentinels has active and what is missing"},
 		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
 		{"command": "events", "description": "Recent attacks and events (e.g. /events 48)"},
@@ -283,7 +286,7 @@ type Button struct {
 }
 
 func (b *Bot) send(ctx context.Context, chatID int64, text string, buttons []Button) {
-	params := map[string]any{"chat_id": chatID, "text": text, "disable_web_page_preview": true}
+	params := map[string]any{"chat_id": chatID, "text": notify.PlainText(text), "disable_web_page_preview": true}
 	if len(buttons) > 0 {
 		params["reply_markup"] = map[string]any{"inline_keyboard": [][]Button{buttons}}
 	}

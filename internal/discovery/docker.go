@@ -51,6 +51,10 @@ type Container struct {
 	ReadOnlyFS  bool
 	Ports       []PortBinding
 	Mounts      []Mount
+	Pid         int      // host PID of the main process (0 when stopped)
+	TTY         bool     // logs come as raw text instead of multiplexed frames
+	IPs         []string // addresses on the container's networks
+	Gateways    []string // the networks' gateways: traffic from the host itself
 }
 
 // versionVars are the only env values kept: official images set them and they
@@ -124,14 +128,18 @@ func (c *Client) Containers(ctx context.Context) ([]Container, error) {
 
 // inspect mirrors the subset of GET /containers/{id}/json that the checks use.
 type inspect struct {
-	Id     string
-	Name   string
-	Image  string
+	Id    string
+	Name  string
+	Image string
+	State struct {
+		Pid int
+	}
 	Config struct {
 		Image  string
 		User   string
 		Env    []string
 		Labels map[string]string
+		Tty    bool
 	}
 	HostConfig struct {
 		Privileged     bool
@@ -148,6 +156,11 @@ type inspect struct {
 		Ports map[string][]struct {
 			HostIp   string
 			HostPort string
+		}
+		Networks map[string]struct {
+			IPAddress         string
+			GlobalIPv6Address string
+			Gateway           string
 		}
 	}
 	Mounts []struct {
@@ -175,6 +188,18 @@ func (r inspect) toContainer() Container {
 		Devices:     len(r.HostConfig.Devices),
 		Memory:      r.HostConfig.Memory,
 		ReadOnlyFS:  r.HostConfig.ReadonlyRootfs,
+		Pid:         r.State.Pid,
+		TTY:         r.Config.Tty,
+	}
+	for _, n := range r.NetworkSettings.Networks {
+		for _, ip := range []string{n.IPAddress, n.GlobalIPv6Address} {
+			if ip != "" {
+				c.IPs = append(c.IPs, ip)
+			}
+		}
+		if n.Gateway != "" {
+			c.Gateways = append(c.Gateways, n.Gateway)
+		}
 	}
 	for _, kv := range r.Config.Env {
 		k, v, _ := strings.Cut(kv, "=")

@@ -169,3 +169,41 @@ func TestSuricataTailAndRotation(t *testing.T) {
 		t.Fatal("arquivo rotacionado não reaberto")
 	}
 }
+
+func TestCrowdSecTracksActiveDecisions(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch calls.Add(1) {
+		case 1: // startup: two local bans, one community entry, one already expired
+			w.Write([]byte(`{"new":[
+				{"id":1,"origin":"crowdsec","type":"ban","scope":"Ip","value":"203.0.113.7","duration":"3h59m53s","scenario":"crowdsecurity/ssh-slow-bf"},
+				{"id":2,"origin":"cscli","type":"ban","scope":"Ip","value":"198.51.100.9","duration":"23h","scenario":"manual"},
+				{"id":3,"origin":"CAPI","type":"ban","scope":"Ip","value":"192.0.2.1","duration":"160h","scenario":"http-probing"},
+				{"id":4,"origin":"crowdsec","type":"ban","scope":"Ip","value":"192.0.2.50","duration":"-5s","scenario":"x"}]}`))
+		case 2: // the manual ban was removed
+			w.Write([]byte(`{"new":null,"deleted":[{"id":2,"origin":"cscli","value":"198.51.100.9"}]}`))
+		default:
+			w.Write([]byte(`{"new":null}`))
+		}
+	}))
+	defer srv.Close()
+	cs := &CrowdSec{URL: srv.URL, APIKey: "k", Interval: 10 * time.Millisecond}
+	if _, ok := cs.Blocked(time.Now()); ok {
+		t.Error("sem leitura ainda, não deveria estar pronto")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go cs.Run(ctx, make(chan event.Event, 8))
+	for end := time.Now().Add(2 * time.Second); calls.Load() < 3 && time.Now().Before(end); time.Sleep(5 * time.Millisecond) {
+	}
+	list, ok := cs.Blocked(time.Now())
+	if !ok || len(list) != 1 || list[0].Value != "203.0.113.7" || list[0].Scenario != "crowdsecurity/ssh-slow-bf" {
+		t.Fatalf("ativos: ok=%v %+v", ok, list)
+	}
+	if left := time.Until(list[0].Until); left < 3*time.Hour || left > 4*time.Hour {
+		t.Errorf("expira em %v", left)
+	}
+	if later, _ := cs.Blocked(time.Now().Add(5 * time.Hour)); len(later) != 0 {
+		t.Errorf("ban vencido continua na lista: %+v", later)
+	}
+}

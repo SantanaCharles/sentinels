@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/SantanaCharles/sentinels/internal/ai"
 	"github.com/SantanaCharles/sentinels/internal/config"
+	"github.com/SantanaCharles/sentinels/internal/discovery"
 	"github.com/SantanaCharles/sentinels/internal/finding"
 	"github.com/SantanaCharles/sentinels/internal/integrations"
 	"github.com/SantanaCharles/sentinels/internal/notify"
@@ -18,6 +20,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/store"
 	"github.com/SantanaCharles/sentinels/internal/telegram"
 	"github.com/SantanaCharles/sentinels/internal/watch"
+	"github.com/SantanaCharles/sentinels/internal/workload"
 )
 
 func runWatch(ctx context.Context, args []string) int {
@@ -42,7 +45,7 @@ func runWatch(ctx context.Context, args []string) int {
 	}
 	defer st.Close()
 
-	sources, err := buildSources(cfg)
+	sources, err := buildSources(cfg, hostProc(*procRoot))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
@@ -129,8 +132,15 @@ func runWatch(ctx context.Context, args []string) int {
 	// Telegram bots start after the watcher exists: "/varrer" requests a scan
 	// and the bot reports back through the AfterScan hook.
 	health := healthFunc(cfg, sources, chans, ex, time.Now())
+	var blocklist telegram.Blocklist
+	for _, s := range sources {
+		if cs, ok := s.(*integrations.CrowdSec); ok {
+			blocklist = cs
+		}
+	}
 	for _, bot := range buildBots(cfg, st, ex, host) {
 		bot.Health = health
+		bot.Blocklist = blocklist
 		if w.Scan != nil {
 			bot.Scanner = w
 			w.AfterScan = append(w.AfterScan, bot.ScanDone)
@@ -177,7 +187,7 @@ func buildBots(cfg config.Config, st *store.Store, ex extras, host string) []*te
 
 // buildSources turns the integrations section into event sources. "auto"
 // enables a source only when its prerequisite is present.
-func buildSources(cfg config.Config) ([]integrations.Source, error) {
+func buildSources(cfg config.Config, procRoot string) ([]integrations.Source, error) {
 	var out []integrations.Source
 	in := cfg.Integrations
 
@@ -209,7 +219,39 @@ func buildSources(cfg config.Config) ([]integrations.Source, error) {
 			out = append(out, &integrations.Falco{Listen: in.Falco.Listen})
 		}
 	}
+
+	if w := in.Containers; w.Mode() != "false" && (config.On(w.Logs) || config.On(w.DBClients)) {
+		dc := discovery.NewClient(cfg.Docker.Socket)
+		pctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := dc.Ping(pctx)
+		cancel()
+		switch {
+		case err == nil:
+			mon := &workload.Monitor{Docker: dc, Logs: config.On(w.Logs), Exclude: map[string]bool{}, Log: logf}
+			for _, name := range w.Exclude {
+				mon.Exclude[name] = true
+			}
+			if config.On(w.DBClients) {
+				mon.Clients = &workload.Clients{ProcRoot: procRoot,
+					StateFile: filepath.Join(filepath.Dir(cfg.Storage.Path), "db-clients.json")}
+			}
+			out = append(out, mon)
+		case w.Mode() == "true":
+			return nil, fmt.Errorf("integrations.containers habilitado mas o Docker não respondeu: %v", err)
+		}
+	}
 	return out, nil
+}
+
+// hostProc finds the host's /proc: the Docker deployment mounts it at
+// /host/proc so the agent can read the databases' connections.
+func hostProc(flag string) string {
+	if flag == "/proc" {
+		if _, err := os.Stat("/host/proc/1"); err == nil {
+			return "/host/proc"
+		}
+	}
+	return flag
 }
 
 func falcoInstalled() bool {
