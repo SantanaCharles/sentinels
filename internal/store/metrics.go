@@ -156,6 +156,70 @@ func (s *Store) Metrics(ctx context.Context, now time.Time) (*Metrics, error) {
 	return m, nil
 }
 
+// DayCounts aggregates the events whose last_seen falls in [start, end).
+// Totals are occurrence counts (the count column), so a brute force that
+// repeated 500 times weighs as 500 — the "how much was thrown at us" view.
+type DayCounts struct {
+	Total      int            `json:"total"`
+	BySeverity map[int]int    `json:"by_severity"` // severity level (0..4) -> occurrences
+	ByIP       map[string]int `json:"by_ip"`       // source IP -> occurrences (non-empty IPs only)
+	Techniques []Ranked       `json:"techniques"`  // top ATT&CK techniques, most first
+}
+
+// DayCounts computes the summary used by the daily report.
+func (s *Store) DayCounts(ctx context.Context, start, end time.Time) (*DayCounts, error) {
+	dc := &DayCounts{BySeverity: map[int]int{}, ByIP: map[string]int{}}
+	a, b := start.Unix(), end.Unix()
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT severity, SUM(count) FROM events WHERE last_seen >= ? AND last_seen < ? GROUP BY severity`, a, b)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var sev, n int
+		if err := rows.Scan(&sev, &n); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		dc.BySeverity[sev] += n
+		dc.Total += n
+	}
+	rows.Close()
+
+	rows, err = s.db.QueryContext(ctx,
+		`SELECT source_ip, SUM(count) FROM events WHERE last_seen >= ? AND last_seen < ? AND COALESCE(source_ip, '') <> '' GROUP BY source_ip`, a, b)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var ip string
+		var n int
+		if err := rows.Scan(&ip, &n); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		dc.ByIP[ip] = n
+	}
+	rows.Close()
+
+	rows, err = s.db.QueryContext(ctx,
+		`SELECT technique, SUM(count) AS n FROM events WHERE last_seen >= ? AND last_seen < ? AND COALESCE(technique, '') <> ''
+			GROUP BY technique ORDER BY n DESC LIMIT 5`, a, b)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r Ranked
+		if err := rows.Scan(&r.Key, &r.Count); err != nil {
+			return nil, err
+		}
+		dc.Techniques = append(dc.Techniques, r)
+	}
+	return dc, rows.Err()
+}
+
 // EventsByIP sums the occurrences of each source IP since the given time.
 func (s *Store) EventsByIP(ctx context.Context, since time.Time) (map[string]int, error) {
 	rows, err := s.db.QueryContext(ctx,

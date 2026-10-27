@@ -41,6 +41,23 @@ Um agente parado não alerta nada, então ele avisa que está vivo:
 
 Os dois ficam em `sentinels setup scan`.
 
+### Relatório diário por país
+
+`alerts.daily_report: "08:00"` (hora local) manda, uma vez por dia, um resumo do **dia anterior** em
+todos os canais: total de eventos e a quebra por severidade, **origem dos ataques por país**, os IPs e
+as técnicas (ATT&CK) mais ativos, e o que segue em aberto. Vazio desliga.
+
+A origem por país vem de uma base GeoIP lida **offline** (nenhum IP sai da máquina):
+
+- o `GeoLite2` que o CrowdSec já instala em `/var/lib/crowdsec/data/`, quando presente (instalação via
+  systemd); ou
+- a base **DB-IP Lite Country** (CC-BY — [db-ip.com](https://db-ip.com)) que o `sentinels setup install`
+  baixa para `/var/lib/sentinels/dbip-country.mmdb` — é o caminho usado no Docker e em servidores sem
+  CrowdSec. Ela é mensal; rode o passo de novo para atualizá-la.
+
+Para apontar uma base `.mmdb` específica, use `alerts.geoip_db`. Sem nenhuma base, o relatório ainda sai,
+agrupando apenas por IP.
+
 ### O que a varredura também verifica sobre o próprio agente
 
 | Achado | Quando |

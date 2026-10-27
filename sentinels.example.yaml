@@ -38,6 +38,12 @@ alerts:
   # Monitor externo (healthchecks.io, Uptime Kuma push): o agente acessa a URL a cada 5 min
   # e o monitor avisa sozinho se os acessos pararem. A URL fica no sentinels.env.
   # heartbeat_url_env: SENTINELS_HEARTBEAT_URL
+  # Relatório diário (HH:MM, hora local): resumo do dia anterior em todos os canais —
+  # total de eventos, origem dos ataques por país, IPs e técnicas mais ativos. Vazio = desligado.
+  # O país vem de uma base GeoIP offline: o GeoLite2 do CrowdSec, se existir, ou a base DB-IP Lite
+  # que `sentinels setup install` baixa. Sem base, o relatório sai agrupando só por IP.
+  # daily_report: "08:00"
+  # geoip_db: /var/lib/sentinels/dbip-country.mmdb   # opcional: aponta uma base .mmdb específica
   # Teste os canais com: sentinels notify-test
   notifiers:
     # Telegram: crie o bot com @BotFather; chat_id de grupo começa com -100

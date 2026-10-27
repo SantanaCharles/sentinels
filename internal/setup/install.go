@@ -113,6 +113,7 @@ func (s *Session) sectionInstall(ctx context.Context) error {
 				huh.NewOption("Suricata — tráfego de rede  "+installedStatus(f.Installed["suricata"], " · usa ~500 MB de RAM"), "suricata"),
 				huh.NewOption("Falco — o que acontece dentro dos containers  "+installedStatus(f.Installed["falco"], ""), "falco"),
 				huh.NewOption("Trivy — CVEs e chaves vazadas nas imagens  "+installedStatus(f.Installed["trivy"] || f.ComposeFile != "", trivyNote), "trivy"),
+				huh.NewOption("Geolocalização — país de origem dos ataques, para o relatório diário  "+installedStatus(s.geoipReady(), ""), "geoip"),
 				huh.NewOption("← voltar", "back"),
 			).Value(&choice)); err != nil {
 			return err
@@ -129,6 +130,8 @@ func (s *Session) sectionInstall(ctx context.Context) error {
 			err = s.installFalco(ctx)
 		case "trivy":
 			err = s.installTrivy(ctx)
+		case "geoip":
+			err = s.installGeoIP(ctx)
 		}
 		s.Host = nil // re-detect after changes
 		if err != nil && !errors.Is(err, huh.ErrUserAborted) {
@@ -389,6 +392,72 @@ func (s *Session) installTrivy(ctx context.Context) error {
 		s.dirty = true
 	}
 	return err
+}
+
+// geoipDir is where the DB-IP database lives, next to the agent's own store.
+func (s *Session) geoipDir() string {
+	dir := filepath.Dir(s.Cfg.Storage.Path)
+	if dir == "" || dir == "." {
+		dir = "/var/lib/sentinels"
+	}
+	return dir
+}
+
+// geoipReady reports whether some country database is already available
+// (CrowdSec's GeoLite2 or a DB-IP file downloaded earlier).
+func (s *Session) geoipReady() bool {
+	for _, p := range []string{
+		filepath.Join(s.geoipDir(), "dbip-country.mmdb"),
+		"/var/lib/crowdsec/data/GeoLite2-City.mmdb",
+		"/var/lib/crowdsec/data/GeoLite2-Country.mmdb",
+	} {
+		if _, err := os.Stat(s.hostPath(p)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// installGeoIP downloads the free DB-IP Lite Country database so the daily
+// report can group attacks by country. CrowdSec's GeoLite2, when present, is
+// used automatically; this covers Docker and CrowdSec-less setups.
+func (s *Session) installGeoIP(ctx context.Context) error {
+	dir := s.geoipDir()
+	ok, err := s.runPlan(ctx, "Baixar a base de geolocalização DB-IP Lite (país dos IPs)", geoipDownload(dir))
+	if err != nil || !ok {
+		return err
+	}
+	if s.Cfg.Alerts.DailyReport == "" && s.confirm("Enviar um relatório diário com os ataques por país às 08:00?", true) {
+		s.Cfg.Alerts.DailyReport = "08:00"
+		s.dirty = true
+	}
+	s.note("Geolocalização pronta",
+		"Base DB-IP Lite (CC-BY — https://db-ip.com) salva em "+dir+"/dbip-country.mmdb.\n"+
+			"Ela é mensal: rode este passo de novo quando quiser atualizá-la.\n"+
+			"O relatório diário é controlado por alerts.daily_report (HH:MM); vazio desliga.")
+	return nil
+}
+
+// geoipDownload tries the current month's DB-IP Lite file, then the previous
+// month's (the newest is sometimes not published yet near the turn).
+func geoipDownload(dir string) string {
+	return "set -e\n" +
+		"DIR='" + dir + "'\n" +
+		"mkdir -p \"$DIR\"\n" +
+		"TMP=\"$(mktemp)\"\n" +
+		"ok=\n" +
+		"for M in \"$(date -u +%Y-%m)\" \"$(date -u -d 'last month' +%Y-%m 2>/dev/null || true)\"; do\n" +
+		"  [ -n \"$M\" ] || continue\n" +
+		"  echo \"Tentando dbip-country-lite-$M...\"\n" +
+		"  if curl -fsSL \"https://download.db-ip.com/free/dbip-country-lite-$M.mmdb.gz\" -o \"$TMP.gz\"; then\n" +
+		"    gunzip -f \"$TMP.gz\"\n" +
+		"    mv \"$TMP\" \"$DIR/dbip-country.mmdb\"\n" +
+		"    ok=1; break\n" +
+		"  fi\n" +
+		"done\n" +
+		"[ -n \"$ok\" ] || { echo 'Nao foi possivel baixar a base DB-IP (verifique a internet).'; rm -f \"$TMP\" \"$TMP.gz\"; exit 1; }\n" +
+		"chmod 644 \"$DIR/dbip-country.mmdb\"\n" +
+		"echo \"Base salva em $DIR/dbip-country.mmdb (DB-IP Lite, CC-BY - https://db-ip.com).\"\n"
 }
 
 // offerApply restarts the agent so saved changes take effect.

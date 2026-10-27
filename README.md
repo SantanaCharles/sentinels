@@ -43,6 +43,7 @@ nowhere except where you configure it to.
 | Database (PostgreSQL) | multi-tenant tables without Row-Level Security, RLS without `FORCE`, app connecting as owner/superuser |
 | Real time | CrowdSec, Suricata and Falco alerts correlated per container/app |
 | Inside apps and databases | SQL injection attempts in PostgreSQL and app logs (with the query), RLS violations, dangerous database commands, a logged-in user walking through other people's IDs (IDOR), new containers connecting to a database, a database or PHP opening a shell (Falco rules), CrowdSec WAF in front of Traefik |
+| Daily report | once a day, a summary of the previous day to every channel: total events, attacks by country (offline GeoIP), busiest IPs and ATT&CK techniques |
 
 ## Knowledge bases
 
@@ -104,7 +105,7 @@ sudo sentinels setup install      # install or reconfigure CrowdSec, Suricata, F
 | Section | What you configure |
 |---------|--------------------|
 | `quick` | AI + one alert channel + a test, in two minutes |
-| `install` | install or reconfigure **CrowdSec** (key, reverse-proxy logs, firewall blocking incl. Docker ports, your SSH IP whitelisted), **Suricata**, **Falco**, **Trivy** — every command is shown and confirmed before running |
+| `install` | install or reconfigure **CrowdSec** (key, reverse-proxy logs, firewall blocking incl. Docker ports, your SSH IP whitelisted), **Suricata**, **Falco**, **Trivy**, **geolocation** (DB-IP Lite, for the daily country report) — every command is shown and confirmed before running |
 | `ai` | provider, model, API key and usage limits |
 | `notifications` | Telegram, Slack, Discord, e-mail, webhook — and Telegram chat |
 | `integrations` | Trivy, CrowdSec, Suricata, Falco |

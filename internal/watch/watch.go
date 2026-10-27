@@ -56,6 +56,11 @@ type Watcher struct {
 	// pinged every 5 minutes (external dead-man's switch).
 	Heartbeat    time.Duration
 	HeartbeatURL string
+	// DailyReport "HH:MM" (local time) sends a summary of the previous day to
+	// every channel; empty disables it. GeoIP, when set, groups the day's
+	// attackers by country; nil falls back to grouping by IP only.
+	DailyReport string
+	GeoIP       CountryLookup
 
 	mu          sync.RWMutex
 	state       targetState
@@ -98,6 +103,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 	}
 	if w.Heartbeat > 0 {
 		go w.heartbeatLoop(ctx)
+	}
+	if w.DailyReport != "" {
+		go w.dailyReportLoop(ctx)
 	}
 	if w.HeartbeatURL != "" {
 		go w.pingLoop(ctx)

@@ -89,6 +89,14 @@ type Alerts struct {
 	// (healthchecks.io, Uptime Kuma push): it alerts you if the pings stop.
 	Heartbeat       string `yaml:"heartbeat,omitempty"`
 	HeartbeatURLEnv string `yaml:"heartbeat_url_env,omitempty"`
+	// DailyReport "08:00" (local time) sends a summary of the previous day to
+	// every channel: total events, top countries of origin, IPs and
+	// techniques. Empty = off.
+	DailyReport string `yaml:"daily_report,omitempty"`
+	// GeoIPDB is an explicit path to a MaxMind-format country database
+	// (.mmdb). Empty tries CrowdSec's GeoLite2 and the DB-IP file that
+	// `setup install` downloads.
+	GeoIPDB string `yaml:"geoip_db,omitempty"`
 }
 
 // Notifier is one alert channel. Which fields apply depends on Type:
@@ -204,6 +212,12 @@ func resolveSocket(fromFile string) string {
 	return fromFile
 }
 
+// validClock reports whether s is a 24-hour "HH:MM" time.
+func validClock(s string) bool {
+	_, err := time.Parse("15:04", s)
+	return err == nil
+}
+
 // Validate checks values that would only fail later, at runtime.
 func (c Config) Validate() error {
 	if _, err := time.ParseDuration(c.Scan.Interval); err != nil {
@@ -216,6 +230,9 @@ func (c Config) Validate() error {
 	}
 	if _, err := time.ParseDuration(c.Alerts.DedupWindow); err != nil {
 		return fmt.Errorf("alerts.dedup_window inválido: %w", err)
+	}
+	if c.Alerts.DailyReport != "" && !validClock(c.Alerts.DailyReport) {
+		return fmt.Errorf("alerts.daily_report inválido: %q (use HH:MM, ex.: 08:00)", c.Alerts.DailyReport)
 	}
 	for _, s := range []struct{ name, v string }{
 		{"alerts.min_severity", c.Alerts.MinSeverity}, {"ai.min_severity", c.AI.MinSeverity},

@@ -14,6 +14,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/config"
 	"github.com/SantanaCharles/sentinels/internal/discovery"
 	"github.com/SantanaCharles/sentinels/internal/finding"
+	"github.com/SantanaCharles/sentinels/internal/geoip"
 	"github.com/SantanaCharles/sentinels/internal/integrations"
 	"github.com/SantanaCharles/sentinels/internal/notify"
 	"github.com/SantanaCharles/sentinels/internal/scan"
@@ -44,6 +45,20 @@ func runWatch(ctx context.Context, args []string) int {
 		return 1
 	}
 	defer st.Close()
+
+	// GeoIP for the daily report's "attacks by country" section. Optional:
+	// a nil database just drops the country grouping.
+	dataDir := filepath.Dir(cfg.Storage.Path)
+	gi, err := geoip.Open(geoip.DefaultPaths(cfg.Alerts.GeoIPDB, dataDir)...)
+	if err != nil {
+		logf("geoip: %v", err)
+	}
+	if gi != nil {
+		defer gi.Close()
+		logf("geoip: usando a base %s", gi.Path())
+	} else if cfg.Alerts.DailyReport != "" {
+		logf("geoip: nenhuma base encontrada; relatório diário sairá sem país (rode `sentinels setup install`)")
+	}
 
 	sources, err := buildSources(cfg, hostProc(*procRoot))
 	if err != nil {
@@ -117,7 +132,11 @@ func runWatch(ctx context.Context, args []string) int {
 		Retention:    time.Duration(cfg.Storage.RetentionDays) * 24 * time.Hour,
 		Heartbeat:    config.Duration(cfg.Alerts.Heartbeat, 0),
 		HeartbeatURL: config.Secret(cfg.Alerts.HeartbeatURLEnv),
+		DailyReport:  cfg.Alerts.DailyReport,
 		Log:          logf,
+	}
+	if gi != nil { // keep w.GeoIP a true nil interface when there is no database
+		w.GeoIP = gi
 	}
 	if !*noScan {
 		opt := scan.Options{ProcRoot: *procRoot, Log: logf}
