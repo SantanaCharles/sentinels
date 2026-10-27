@@ -65,33 +65,43 @@ func parseClock(hhmm string) (hour, min int) {
 }
 
 func (w *Watcher) dailyReportAlert(ctx context.Context, start, end time.Time) Alert {
-	title := "📅 Relatório diário — " + start.Format("02/01/2006")
-	dc, err := w.Store.DayCounts(ctx, start, end)
-	if err != nil {
-		return Alert{Severity: finding.Info, Title: title, Lines: []string{"Não foi possível ler os eventos: " + err.Error()}, Always: true}
+	return Alert{
+		Severity: finding.Info,
+		Title:    "📅 Relatório diário — " + start.Format("02/01/2006"),
+		Lines:    DailyReportLines(ctx, w.Store, w.GeoIP, start, end),
+		Always:   true,
 	}
+}
 
+// DailyReportLines builds the body of the report for the window [start, end):
+// total and severity, the countries the attacks came from, the busiest IPs and
+// the type of attack. It is shared by the scheduled report and the Telegram
+// `/report` command. geo may be nil, which drops the country grouping.
+func DailyReportLines(ctx context.Context, st *store.Store, geo CountryLookup, start, end time.Time) []string {
+	dc, err := st.DayCounts(ctx, start, end)
+	if err != nil {
+		return []string{"Não foi possível ler os eventos: " + err.Error()}
+	}
 	var lines []string
 	if dc.Total == 0 {
-		lines = append(lines, "Nenhum evento registrado ontem. 🎉")
-	} else {
-		lines = append(lines, fmt.Sprintf("%d evento(s) no total.%s", dc.Total, severityBreakdown(dc.BySeverity)))
-		if c := w.topCountries(dc.ByIP); c != "" {
-			lines = append(lines, "Origem dos ataques: "+c)
-		} else if w.GeoIP == nil && len(dc.ByIP) > 0 {
-			lines = append(lines, "Origem por país: base de geolocalização indisponível (rode `sentinels setup install` ou configure alerts.geoip_db).")
-		}
-		if ips := w.topIPs(dc.ByIP); ips != "" {
-			lines = append(lines, "IPs mais ativos: "+ips)
-		}
-		if t := topTechniques(dc.Techniques); t != "" {
-			lines = append(lines, "Técnicas: "+t)
-		}
+		return []string{"Nenhum evento registrado no período. 🎉"}
 	}
-	if m, err := w.Store.Metrics(ctx, end); err == nil && (m.OpenCritical > 0 || m.OpenHigh > 0) {
+	lines = append(lines, fmt.Sprintf("%d evento(s) no total.%s", dc.Total, severityBreakdown(dc.BySeverity)))
+	if c := topCountries(geo, dc.ByIP); c != "" {
+		lines = append(lines, "Origem dos ataques: "+c)
+	} else if geo == nil && len(dc.ByIP) > 0 {
+		lines = append(lines, "Origem por país: base de geolocalização indisponível (rode `sentinels setup install` ou configure alerts.geoip_db).")
+	}
+	if ips := topIPs(geo, dc.ByIP); ips != "" {
+		lines = append(lines, "IPs mais ativos: "+ips)
+	}
+	if t := topTechniques(dc.Techniques); t != "" {
+		lines = append(lines, "Tipo de ataque: "+t)
+	}
+	if m, err := st.Metrics(ctx, end); err == nil && (m.OpenCritical > 0 || m.OpenHigh > 0) {
 		lines = append(lines, fmt.Sprintf("Ainda em aberto: %d crítico(s), %d alto(s).", m.OpenCritical, m.OpenHigh))
 	}
-	return Alert{Severity: finding.Info, Title: title, Lines: lines, Always: true}
+	return lines
 }
 
 // sevNames maps a severity level to its label, highest-interest first order.
@@ -121,8 +131,8 @@ func severityBreakdown(by map[int]int) string {
 
 // topCountries groups the day's occurrences by country of origin. Returns ""
 // when no geolocation database is configured.
-func (w *Watcher) topCountries(byIP map[string]int) string {
-	if w.GeoIP == nil {
+func topCountries(geo CountryLookup, byIP map[string]int) string {
+	if geo == nil {
 		return ""
 	}
 	type country struct {
@@ -131,7 +141,7 @@ func (w *Watcher) topCountries(byIP map[string]int) string {
 	}
 	agg := map[string]*country{}
 	for ip, n := range byIP {
-		code, name := w.GeoIP.Country(ip)
+		code, name := geo.Country(ip)
 		key := code
 		if key == "" {
 			key, name = "??", "desconhecido"
@@ -166,7 +176,7 @@ func (w *Watcher) topCountries(byIP map[string]int) string {
 	return strings.Join(parts, ", ")
 }
 
-func (w *Watcher) topIPs(byIP map[string]int) string {
+func topIPs(geo CountryLookup, byIP map[string]int) string {
 	type ipc struct {
 		ip    string
 		code  string
@@ -175,8 +185,8 @@ func (w *Watcher) topIPs(byIP map[string]int) string {
 	list := make([]ipc, 0, len(byIP))
 	for ip, n := range byIP {
 		e := ipc{ip: ip, count: n}
-		if w.GeoIP != nil {
-			e.code, _ = w.GeoIP.Country(ip)
+		if geo != nil {
+			e.code, _ = geo.Country(ip)
 		}
 		list = append(list, e)
 	}

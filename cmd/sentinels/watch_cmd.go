@@ -46,15 +46,17 @@ func runWatch(ctx context.Context, args []string) int {
 	}
 	defer st.Close()
 
-	// GeoIP for the daily report's "attacks by country" section. Optional:
-	// a nil database just drops the country grouping.
+	// GeoIP for the "attacks by country" section (daily report and /report).
+	// Optional: a nil lookup just drops the country grouping.
 	dataDir := filepath.Dir(cfg.Storage.Path)
 	gi, err := geoip.Open(geoip.DefaultPaths(cfg.Alerts.GeoIPDB, dataDir)...)
 	if err != nil {
 		logf("geoip: %v", err)
 	}
+	var geo watch.CountryLookup // kept a true nil interface when there is no database
 	if gi != nil {
 		defer gi.Close()
+		geo = gi
 		logf("geoip: usando a base %s", gi.Path())
 	} else if cfg.Alerts.DailyReport != "" {
 		logf("geoip: nenhuma base encontrada; relatório diário sairá sem país (rode `sentinels setup install`)")
@@ -135,9 +137,7 @@ func runWatch(ctx context.Context, args []string) int {
 		DailyReport:  cfg.Alerts.DailyReport,
 		Log:          logf,
 	}
-	if gi != nil { // keep w.GeoIP a true nil interface when there is no database
-		w.GeoIP = gi
-	}
+	w.GeoIP = geo
 	if !*noScan {
 		opt := scan.Options{ProcRoot: *procRoot, Log: logf}
 		w.Scan = func(ctx context.Context) *scan.Result {
@@ -157,7 +157,7 @@ func runWatch(ctx context.Context, args []string) int {
 			blocklist = cs
 		}
 	}
-	for _, bot := range buildBots(cfg, st, ex, host) {
+	for _, bot := range buildBots(cfg, st, ex, host, geo) {
 		bot.Health = health
 		bot.Blocklist = blocklist
 		if w.Scan != nil {
@@ -181,7 +181,7 @@ func runWatch(ctx context.Context, args []string) int {
 
 // buildBots creates one Telegram bot per token among the channels marked
 // interactive; each bot obeys only the chat_ids configured for it.
-func buildBots(cfg config.Config, st *store.Store, ex extras, host string) []*telegram.Bot {
+func buildBots(cfg config.Config, st *store.Store, ex extras, host string, geo watch.CountryLookup) []*telegram.Bot {
 	byToken := map[string]*telegram.Bot{}
 	var out []*telegram.Bot
 	for _, n := range cfg.Alerts.Notifiers {
@@ -195,7 +195,7 @@ func buildBots(cfg config.Config, st *store.Store, ex extras, host string) []*te
 		b, ok := byToken[token]
 		if !ok {
 			b = &telegram.Bot{Token: token, AllowedChats: map[string]bool{}, Store: st, ReportDir: cfg.Scan.ReportDir,
-				Host: host, Analyst: ex.analyst, MaxAIPerHour: cfg.AI.MaxCallsHour, Log: logf}
+				Host: host, Analyst: ex.analyst, MaxAIPerHour: cfg.AI.MaxCallsHour, GeoIP: geo, Log: logf}
 			byToken[token] = b
 			out = append(out, b)
 		}

@@ -36,10 +36,14 @@ type Bot struct {
 	Host         string
 	Analyst      *ai.Analyst // nil: free-form questions are disabled
 	MaxAIPerHour int
-	Scanner      Scanner    // nil: /scan is unavailable
-	Health       HealthFunc // nil: /doctor is unavailable
-	Blocklist    Blocklist  // nil: CrowdSec is not active
+	Scanner      Scanner             // nil: /scan is unavailable
+	Health       HealthFunc          // nil: /doctor is unavailable
+	Blocklist    Blocklist           // nil: CrowdSec is not active
+	GeoIP        watch.CountryLookup // nil: /report groups by IP only, no country
 	Log          func(format string, args ...any)
+	// LatestRelease returns the newest published version tag; nil uses the
+	// real GitHub lookup. Set in tests to avoid a network call.
+	LatestRelease func(context.Context) (string, error)
 
 	client   *http.Client
 	offset   int64
@@ -266,6 +270,8 @@ func (b *Bot) registerCommands(ctx context.Context) {
 		{"command": "scan", "description": "Full scan now (status when it finishes)"},
 		{"command": "inventory", "description": "What is running: containers, stack, ports"},
 		{"command": "metrics", "description": "Fix times, false positives, top attackers"},
+		{"command": "report", "description": "Yesterday's report: countries and attack type (or /report hoje)"},
+		{"command": "update", "description": "Check whether a newer version is available"},
 		{"command": "blocked", "description": "IPs blocked right now by CrowdSec"},
 		{"command": "doctor", "description": "What Sentinels has active and what is missing"},
 		{"command": "findings", "description": "Open findings (e.g. /findings critical)"},
