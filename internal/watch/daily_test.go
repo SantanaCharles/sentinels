@@ -71,8 +71,8 @@ func TestDailyReportByCountry(t *testing.T) {
 			}
 		}
 	}
-	rec("198.51.100.9", "ssh-bf", "T1110", 5) // RU, 5
-	rec("192.0.2.5", "ssh-bf-2", "T1110", 3)  // RU, 3
+	rec("198.51.100.9", "ssh-bf", "T1110", 5)   // RU, 5
+	rec("192.0.2.5", "ssh-bf-2", "T1110", 3)    // RU, 3
 	rec("203.0.113.7", "web-probe", "T1190", 2) // BR, 2
 
 	a := w.dailyReportAlert(ctx, day, day.AddDate(0, 0, 1))
