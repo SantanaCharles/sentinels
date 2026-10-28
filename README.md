@@ -1,5 +1,12 @@
 # Sentinels
 
+*Open-source security agent for VPS & Docker — stack discovery, container CVE scanning (Trivy), and real-time attack detection (CrowdSec · Suricata · Falco), with Telegram alerts and AI triage.*
+
+[![CI](https://github.com/SantanaCharles/sentinels/actions/workflows/ci.yml/badge.svg)](https://github.com/SantanaCharles/sentinels/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SantanaCharles/sentinels)](https://github.com/SantanaCharles/sentinels/releases)
+[![License](https://img.shields.io/github/license/SantanaCharles/sentinels)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/SantanaCharles/sentinels)](go.mod)
+
 <img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/7565b218-8858-4a31-b759-b62eb473fb91" />
 
 
