@@ -178,5 +178,5 @@ Sentinels instalado. Próximos passos:
   4. journalctl -u sentinels -f
 
 Recomendado: Trivy para CVEs das imagens (https://trivy.dev) e CrowdSec para
-ataques em tempo real (https://crowdsec.net). Veja docs/INSTALACAO.md.
+ataques em tempo real (https://crowdsec.net). Veja docs/INSTALLATION.md.
 EOF

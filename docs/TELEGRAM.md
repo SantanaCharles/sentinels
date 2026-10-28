@@ -1,68 +1,66 @@
-# Conversar com o agente pelo Telegram
+# Talking to the agent on Telegram
 
-Além de receber alertas, você pode consultar o agente e responder aos alertas pelo chat.
+Besides receiving alerts, you can query the agent and respond to alerts from the chat.
 
-## Ativar
+## Enable
 
-`sentinels setup` → **Notificações**:
-- canal Telegram novo: responda "Sim" em *"Conversar com o agente por este chat?"*;
-- canal que já existe: escolha **💬 ativar conversa**.
+`sentinels setup` → **Notifications**:
+- a new Telegram channel: answer "Yes" to *"Conversar com o agente por este chat?"*;
+- an existing channel: choose **💬 ativar conversa**.
 
-Salve e reinicie o agente (Portainer: Update the service / Restart). No chat, mande `/help`.
+Save and restart the agent (Portainer: Update the service / Restart). In the chat, send `/help`.
 
-## O que dá para fazer
+## What you can do
 
-| No chat | Resposta |
-|---------|----------|
-| `/status` | última varredura, críticos abertos, eventos das últimas 24 h (se a primeira varredura ainda estiver rodando, avisa e manda o status quando terminar) |
-| `/blocked` · `/bloqueados` · `/blocked 13.140` · `/blocked ssh` | IPs bloqueados agora pelo CrowdSec (detecções deste servidor e bans manuais), cenário, tempo restante e quantos eventos o IP gerou em 30 dias. A lista da comunidade do CrowdSec não entra. Desbloquear continua sendo no SSH: `sudo cscli decisions delete --ip IP` |
-| `/metrics` · `/metricas` | tempo médio de correção (MTTR), críticos abertos há mais de 7 dias, taxa de falso positivo, IPs que mais atacaram e técnicas ATT&CK mais vistas |
-| `/report` · `/relatorio` · `/report hoje` | resumo do dia anterior (ou de hoje até agora): total e severidade, **países de onde mais vieram ataques**, IPs mais ativos e o **tipo de ataque** (técnica ATT&CK). Mesmo conteúdo do relatório diário automático |
-| `/update` · `/atualizar` | verifica no GitHub se há uma versão mais nova e mostra o comando para atualizar. **Não** atualiza sozinho — o bot só consulta |
-| `/doctor` | o que o Sentinels tem ativo (Docker, Trivy, CrowdSec, Suricata, Falco, IA, canais) e os comandos exatos para instalar o que falta — você roda no SSH |
-| `/inventory` · `/inventory php` | o que está rodando: containers, imagem, stack, portas públicas e problemas de cada um (pacotes instalados direto no sistema não entram) |
-| `/scan` | confirma na hora ("Em poucos minutos te mando o status"), roda uma varredura completa e manda o status ao terminar |
-| `/findings` · `/findings critical` · `/findings all` | problemas abertos |
-| `/events` · `/events 72` | ataques e eventos recentes, numerados |
-| `/event 12` | detalhe do evento, análise da IA e botões |
-| `/muted` | regras de falso positivo ativas |
-| Botões nos alertas | **✅ Ataque real** · **🔕 Falso positivo** · **🤖 Explicar** |
-| Qualquer pergunta | respondida pela IA configurada, ex.: *"o que aconteceu hoje?"*, *"o PHP da loja está vulnerável?"* |
+| In the chat | Response |
+|-------------|----------|
+| `/status` | last scan, open criticals, events in the last 24 h (if the first scan is still running, it says so and sends the status when it finishes) |
+| `/blocked` · `/bloqueados` · `/blocked 13.140` · `/blocked ssh` | IPs blocked right now by CrowdSec (detections from this server and manual bans), scenario, time left and how many events the IP generated in 30 days. The CrowdSec community list is not included. Unblocking is still done over SSH: `sudo cscli decisions delete --ip IP` |
+| `/metrics` · `/metricas` | mean time to fix (MTTR), criticals open for more than 7 days, false-positive rate, top attacking IPs and most-seen ATT&CK techniques |
+| `/report` · `/relatorio` · `/report hoje` | summary of the previous day (or of today so far): total and severity, **countries the attacks came from the most**, most active IPs and the **attack type** (ATT&CK technique). Same content as the automatic daily report |
+| `/update` · `/atualizar` | checks on GitHub whether a newer version exists and shows the command to update. It does **not** update on its own — the bot only queries |
+| `/doctor` | what Sentinels has active (Docker, Trivy, CrowdSec, Suricata, Falco, AI, channels) and the exact commands to install what is missing — you run them over SSH |
+| `/inventory` · `/inventory php` | what is running: containers, image, stack, public ports and the problems of each (packages installed directly on the system are not included) |
+| `/scan` | confirms right away ("Em poucos minutos te mando o status"), runs a full scan and sends the status when it finishes |
+| `/findings` · `/findings critical` · `/findings all` | open problems |
+| `/events` · `/events 72` | recent attacks and events, numbered |
+| `/event 12` | event detail, the AI analysis and buttons |
+| `/muted` | active false-positive rules |
+| Buttons on alerts | **✅ Ataque real** · **🔕 Falso positivo** · **🤖 Explicar** |
+| Any question | answered by the configured AI, e.g. *"o que aconteceu hoje?"*, *"o PHP da loja está vulnerável?"* |
 
-Tudo que demora responde na hora com uma confirmação — "🤔 Analisando sua pergunta…",
-"🤖 Analisando o evento #12…", "🔎 Iniciando uma varredura…" — e a resposta completa chega em
-seguida.
+Anything slow replies right away with a confirmation — "🤔 Analisando sua pergunta…",
+"🤖 Analisando o evento #12…", "🔎 Iniciando uma varredura…" — and the full answer arrives next.
 
-Os nomes em português das versões anteriores (`/varrer`, `/achados`, `/eventos`, `/evento`,
-`/silenciados`, `/ajuda`) continuam funcionando.
+The Portuguese names from earlier versions (`/varrer`, `/achados`, `/eventos`, `/evento`,
+`/silenciados`, `/ajuda`) still work.
 
-Os botões fazem o mesmo que `sentinels feedback` no terminal: falso positivo silencia eventos
-iguais por 30 dias (exceto exploração contra alvo vulnerável); ataque real faz o IP pesar mais
-nos próximos alertas por 90 dias.
+The buttons do the same as `sentinels feedback` in the terminal: a false positive silences identical
+events for 30 days (except exploitation against a vulnerable target); a real attack makes the IP
+weigh more in the next alerts for 90 days.
 
-## Segurança
+## Security
 
-- **Só o chat configurado é atendido.** Mensagens e botões vindos de qualquer outro chat são
-  ignorados (e registrados uma vez no log). Em grupo, todos os membros do grupo podem usar o bot —
-  use um grupo só da equipe.
-- **Nada é alterado no servidor.** O bot consulta dados e grava feedback; não reinicia
-  containers, não bloqueia IPs, não executa comandos.
-- **Sem porta aberta.** O agente busca as mensagens no Telegram (long polling).
-- **Mensagens antigas são ignoradas**: o que chegou enquanto o agente estava parado não é
-  respondido.
-- Respostas em texto simples (sem formatação), segredos mascarados; perguntas à IA usam a mesma
-  redação dos alertas (`[IP-1]`…) e contam no limite `ai.max_calls_per_hour`.
+- **Only the configured chat is served.** Messages and buttons coming from any other chat are
+  ignored (and logged once). In a group, every member of the group can use the bot — use a group
+  that is just the team.
+- **Nothing is changed on the server.** The bot queries data and records feedback; it does not
+  restart containers, block IPs or run commands.
+- **No open port.** The agent fetches the messages from Telegram (long polling).
+- **Old messages are ignored**: whatever arrived while the agent was down is not answered.
+- Plain-text responses (no formatting), masked secrets; questions to the AI use the same redaction
+  as the alerts (`[IP-1]`…) and count toward the `ai.max_calls_per_hour` limit.
 
-## Vários servidores
+## Several servers
 
-O Telegram permite **um único leitor por bot**. Com mais de um agente (vários servidores ou um
-Swarm com vários nós), crie **um bot por servidor** para a conversa — o mesmo grupo pode receber
-os alertas de todos. Se dois agentes lerem o mesmo bot, o log mostra
+Telegram allows **a single reader per bot**. With more than one agent (several servers or a Swarm
+with several nodes), create **one bot per server** for the chat — the same group can receive the
+alerts from all of them. If two agents read the same bot, the log shows
 *"outro processo está lendo este bot"*.
 
-## Por que o bot não instala nada
+## Why the bot installs nothing
 
-Instalar CrowdSec, Suricata ou Falco exige root no servidor. Se o bot pudesse fazer isso, quem
-tomasse sua conta do Telegram — ou conseguisse injetar texto que a IA obedecesse — ganharia root na
-VPS com uma mensagem. Por isso o `/doctor` mostra o que falta e os comandos prontos, e quem executa
-é você, pelo SSH. O agente continua somente leitura.
+Installing CrowdSec, Suricata or Falco requires root on the server. If the bot could do that, anyone
+who took over your Telegram account — or managed to inject text the AI would obey — would gain root
+on the VPS with a single message. That is why `/doctor` shows what is missing and the ready-made
+commands, and you are the one who runs them, over SSH. The agent stays read-only.

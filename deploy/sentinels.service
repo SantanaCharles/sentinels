@@ -1,5 +1,5 @@
 [Unit]
-Description=Sentinels — agente de segurança (varredura, monitoramento e alertas)
+Description=Sentinels — security agent (scanning, monitoring and alerts)
 Documentation=https://github.com/SantanaCharles/sentinels
 After=network-online.target docker.service
 Wants=network-online.target
@@ -8,8 +8,8 @@ Wants=network-online.target
 Type=simple
 User=sentinels
 Group=sentinels
-# Grupos (docker para a API do Docker, adm para logs) vêm do /etc/group:
-# o install.sh adiciona o usuário só aos grupos que existem no servidor.
+# Groups (docker for the Docker API, adm for logs) come from /etc/group:
+# install.sh adds the user only to the groups that exist on the server.
 EnvironmentFile=-/etc/sentinels/sentinels.env
 Environment=TRIVY_CACHE_DIR=/var/lib/sentinels/trivy
 ExecStart=/usr/local/bin/sentinels watch -config /etc/sentinels/sentinels.yaml
@@ -19,7 +19,7 @@ WorkingDirectory=/var/lib/sentinels
 StateDirectory=sentinels
 StateDirectoryMode=0750
 
-# Sandbox: o agente só lê o sistema e só escreve em /var/lib/sentinels.
+# Sandbox: the agent only reads the system and only writes to /var/lib/sentinels.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=

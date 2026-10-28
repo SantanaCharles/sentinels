@@ -19,8 +19,8 @@
 5. **Explains** findings with the AI of your choice — Claude, GPT, Gemini, OpenRouter, Ollama, LM Studio.
 
 > Status: **v0.2 — ready for testing on real servers.** See the [roadmap](#roadmap).
-> The user interface (setup menus, alerts, bot replies) and the detailed docs in `docs/` are
-> currently in Brazilian Portuguese; commands and configuration keys are in English.
+> The documentation, commands and configuration keys are in English. The user interface
+> (setup menus, alerts, bot replies) is currently in Brazilian Portuguese.
 
 ---
 
@@ -92,7 +92,7 @@ docker compose up -d
 **Portainer**: Stacks → Add stack → paste [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml)
 (or [`deploy/portainer-stack-swarm.yml`](deploy/portainer-stack-swarm.yml) on **Docker Swarm**)
 and configure it from the container console (`sentinels setup`). Step by step in
-[docs/INSTALACAO.md](docs/INSTALACAO.md#opção-a2--portainer-stack).
+[docs/INSTALLATION.md](docs/INSTALLATION.md#option-a2--portainer-stack).
 
 **Binary + systemd** (verifies the SHA-256 of every file before installing):
 
@@ -102,7 +102,7 @@ sudo sh install.sh
 sudo systemctl enable --now sentinels
 ```
 
-Details, hardening and upgrades: [docs/INSTALACAO.md](docs/INSTALACAO.md).
+Details, hardening and upgrades: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ## Getting started: `sentinels setup`
 
@@ -229,14 +229,14 @@ alert (with the AI analysis), one note per asset and per ATT&CK technique, all l
 administrator-notes marker is preserved. Text coming from logs always sits in code blocks, so
 nothing injected by an attacker is rendered.
 
-## Documentation (Portuguese)
+## Documentation
 
-- [Installation](docs/INSTALACAO.md)
-- [Operations: check, upgrade, test detection, troubleshooting](docs/OPERACAO.md)
-- [Architecture](docs/ARQUITETURA.md)
+- [Installation](docs/INSTALLATION.md)
+- [Operations: check, upgrade, test detection, troubleshooting](docs/OPERATIONS.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [Security policy](SECURITY.md)
-- [Real-time integrations (CrowdSec, Suricata, Falco)](docs/INTEGRACOES.md)
-- [Inside apps and databases: query patterns, IDOR, database clients, WAF](docs/APLICACOES.md)
+- [Real-time integrations (CrowdSec, Suricata, Falco)](docs/INTEGRATIONS.md)
+- [Inside apps and databases: query patterns, IDOR, database clients, WAF](docs/APPLICATIONS.md)
 - [Writing skills](docs/SKILLS.md)
 - [MCP server (Claude Code, Claude Desktop, ChatGPT…)](docs/MCP.md)
 - [Telegram chat](docs/TELEGRAM.md)

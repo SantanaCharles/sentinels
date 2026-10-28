@@ -95,7 +95,7 @@ func (s *Session) sectionInstall(ctx context.Context) error {
 		return errors.New("instalar componentes exige root: rode sudo sentinels setup install")
 	case !f.Apt:
 		s.note("Sistema não suportado pelo instalador automático",
-			fmt.Sprintf("%s não é Debian/Ubuntu. Instale seguindo docs/INTEGRACOES.md e depois volte em \"Integrações\".", f.OSName))
+			fmt.Sprintf("%s não é Debian/Ubuntu. Instale seguindo docs/INTEGRATIONS.md e depois volte em \"Integrações\".", f.OSName))
 		return nil
 	}
 
@@ -255,7 +255,7 @@ func (s *Session) offerAppSec(ctx context.Context, f HostFacts) (bool, error) {
 		return false, nil
 	}
 	if f.DockerIP == "" {
-		s.note("WAF não ativado", "Não encontrei a interface docker0, por onde o Traefik alcança o CrowdSec do host.\nVeja docs/INTEGRACOES.md (WAF do CrowdSec) para configurar manualmente.")
+		s.note("WAF não ativado", "Não encontrei a interface docker0, por onde o Traefik alcança o CrowdSec do host.\nVeja docs/INTEGRATIONS.md (WAF do CrowdSec) para configurar manualmente.")
 		return false, nil
 	}
 	listen := f.DockerIP + ":7422"

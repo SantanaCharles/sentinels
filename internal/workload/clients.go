@@ -112,7 +112,7 @@ func (c *Clients) Check(dbs []Database, all []discovery.Container, now time.Time
 		}
 	}
 	if len(dbs) > 0 && readable == 0 {
-		return out, fmt.Errorf("sem acesso a %s/<pid>/net: monte o /proc do host (veja docs/OPERACAO.md)", c.ProcRoot)
+		return out, fmt.Errorf("sem acesso a %s/<pid>/net: monte o /proc do host (veja docs/OPERATIONS.md)", c.ProcRoot)
 	}
 	if changed {
 		c.save()

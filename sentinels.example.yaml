@@ -1,95 +1,95 @@
-# Sentinels — configuração de exemplo
-# Copie para /etc/sentinels/sentinels.yaml
-# Segredos SEMPRE via variáveis de ambiente (campos *_env).
+# Sentinels — example configuration
+# Copy to /etc/sentinels/sentinels.yaml
+# Secrets ALWAYS via environment variables (*_env fields).
 
 docker:
   socket: /var/run/docker.sock
 
 scan:
-  interval: 6h            # varredura periódica no modo watch
+  interval: 6h            # periodic scan in watch mode
   report_dir: /var/lib/sentinels/reports
 
 storage:
-  path: /var/lib/sentinels/sentinels.db   # memória local (eventos e histórico de achados)
+  path: /var/lib/sentinels/sentinels.db   # local memory (events and finding history)
   retention_days: 90
 
 databases:
   # - name: educare
   #   driver: postgres
-  #   dsn_env: SENTINELS_DB_EDUCARE   # usuário somente leitura
-  #   app_role: app_user              # role usado pela aplicação
+  #   dsn_env: SENTINELS_DB_EDUCARE   # read-only user
+  #   app_role: app_user              # role used by the application
 
 integrations:
-  trivy:    { enabled: auto }         # auto = usa se estiver instalado
-  # chave: `cscli bouncers add sentinels`
+  trivy:    { enabled: auto }         # auto = use it if installed
+  # key: `cscli bouncers add sentinels`
   crowdsec: { enabled: auto, url: http://127.0.0.1:8080, api_key_env: SENTINELS_CROWDSEC_KEY }
   suricata: { enabled: auto, eve_log: /var/log/suricata/eve.json }
-  # no falco.yaml: http_output: { enabled: true, url: "http://127.0.0.1:2801/falco" }
+  # in falco.yaml: http_output: { enabled: true, url: "http://127.0.0.1:2801/falco" }
   falco:    { enabled: auto, listen: 127.0.0.1:2801 }
-  # Dentro das aplicações e bancos (docs/APLICACOES.md): logs do Postgres e das apps
-  # pela API do Docker e quem conecta em cada banco. Desligue partes com logs/db_clients: false.
+  # Inside applications and databases (docs/APPLICATIONS.md): Postgres and app logs
+  # via the Docker API, plus who connects to each database. Turn parts off with logs/db_clients: false.
   containers: { enabled: auto }
 
 alerts:
-  min_severity: high          # padrão de todos os canais
-  dedup_window: 15m           # repetições dentro da janela só aumentam o contador
-  # Sinal de vida: "🟢 Sentinels ativo" em todos os canais (mín. 1h). Se parar de chegar, o agente caiu.
+  min_severity: high          # default for every channel
+  dedup_window: 15m           # repeats within the window only increment the counter
+  # Heartbeat: "🟢 Sentinels ativo" on every channel (min. 1h). If it stops arriving, the agent is down.
   heartbeat: 24h
-  # Monitor externo (healthchecks.io, Uptime Kuma push): o agente acessa a URL a cada 5 min
-  # e o monitor avisa sozinho se os acessos pararem. A URL fica no sentinels.env.
+  # External monitor (healthchecks.io, Uptime Kuma push): the agent hits the URL every 5 min
+  # and the monitor warns on its own if the hits stop. The URL lives in sentinels.env.
   # heartbeat_url_env: SENTINELS_HEARTBEAT_URL
-  # Relatório diário (HH:MM, hora local): resumo do dia anterior em todos os canais —
-  # total de eventos, origem dos ataques por país, IPs e técnicas mais ativos. Vazio = desligado.
-  # O país vem de uma base GeoIP offline: o GeoLite2 do CrowdSec, se existir, ou a base DB-IP Lite
-  # que `sentinels setup install` baixa. Sem base, o relatório sai agrupando só por IP.
+  # Daily report (HH:MM, local time): summary of the previous day on every channel —
+  # total events, attack origin by country, most active IPs and techniques. Empty = off.
+  # The country comes from an offline GeoIP database: CrowdSec's GeoLite2, if present, or the DB-IP Lite
+  # database that `sentinels setup install` downloads. With no database, the report groups only by IP.
   # daily_report: "08:00"
-  # geoip_db: /var/lib/sentinels/dbip-country.mmdb   # opcional: aponta uma base .mmdb específica
-  # Teste os canais com: sentinels notify-test
+  # geoip_db: /var/lib/sentinels/dbip-country.mmdb   # optional: point at a specific .mmdb database
+  # Test the channels with: sentinels notify-test
   notifiers:
-    # Telegram: crie o bot com @BotFather; chat_id de grupo começa com -100
+    # Telegram: create the bot with @BotFather; a group chat_id starts with -100
     # - type: telegram
     #   token_env: SENTINELS_TELEGRAM_TOKEN
     #   chat_id: "-1001234567890"
-    #   min_severity: critical          # opcional, sobrepõe o padrão
+    #   min_severity: critical          # optional, overrides the default
     # - type: slack
     #   webhook_env: SENTINELS_SLACK_WEBHOOK
     # - type: discord
     #   webhook_env: SENTINELS_DISCORD_WEBHOOK
-    # E-mail: porta 465 = TLS direto; outras exigem STARTTLS
+    # Email: port 465 = direct TLS; others require STARTTLS
     # - type: email
-    #   smtp_host: smtp.exemplo.com:587
+    #   smtp_host: smtp.example.com:587
     #   user_env: SENTINELS_SMTP_USER
     #   password_env: SENTINELS_SMTP_PASSWORD
-    #   from: "Sentinels <sentinels@exemplo.com>"
-    #   to: [admin@exemplo.com]
-    # Webhook: JSON assinado com HMAC-SHA256 (header X-Sentinels-Signature)
+    #   from: "Sentinels <sentinels@example.com>"
+    #   to: [admin@example.com]
+    # Webhook: JSON signed with HMAC-SHA256 (X-Sentinels-Signature header)
     # - type: webhook
     #   name: n8n
     #   url_env: SENTINELS_WEBHOOK_URL
     #   secret_env: SENTINELS_WEBHOOK_SECRET
 
-# IA opcional: resumo executivo nos relatórios e análise dos alertas graves.
-# A detecção e os alertas funcionam sem ela. Teste com: sentinels ai-test
+# Optional AI: executive summary in reports and analysis of severe alerts.
+# Detection and alerts work without it. Test with: sentinels ai-test
 ai:
   enabled: false
   # anthropic | openai | gemini | openrouter | ollama | lmstudio | openai-compatible
   provider: anthropic
   model: claude-sonnet-5-5
-  api_key_env: SENTINELS_AI_KEY       # ollama e lmstudio locais não precisam de chave
-  # base_url: http://127.0.0.1:11434/v1   # só para mudar o endereço padrão do provedor
-  min_severity: critical              # alertas que recebem análise da IA
-  max_calls_per_hour: 20              # teto de custo para análises de alertas
-  report_summary: true                # resumo executivo no topo de cada relatório
-  keep_ips: false                     # false = IPs viram [IP-1] antes de sair do servidor (LGPD)
-  skills_dir: /etc/sentinels/skills   # suas skills SKILL.md (somam ou substituem as embutidas)
+  api_key_env: SENTINELS_AI_KEY       # local ollama and lmstudio need no key
+  # base_url: http://127.0.0.1:11434/v1   # only to change the provider's default address
+  min_severity: critical              # alerts that get AI analysis
+  max_calls_per_hour: 20              # cost cap for alert analysis
+  report_summary: true                # executive summary at the top of each report
+  keep_ips: false                     # false = IPs become [IP-1] before leaving the server (LGPD)
+  skills_dir: /etc/sentinels/skills   # your SKILL.md skills (add to or replace the built-in ones)
 
-# Cofre compatível com Obsidian: relatórios, incidentes e uma nota por ativo/técnica.
-# Abra a pasta no Obsidian (direto no servidor, ou sincronizada com Syncthing/rsync).
+# Obsidian-compatible vault: reports, incidents and one note per asset/technique.
+# Open the folder in Obsidian (directly on the server, or synced with Syncthing/rsync).
 vault:
   enabled: false
   path: /var/lib/sentinels/vault
 
-# Servidor MCP somente leitura (sentinels mcp) — veja docs/MCP.md
+# Read-only MCP server (sentinels mcp) — see docs/MCP.md
 mcp:
-  keep_ips: false                     # false = IPs viram [IP-1] nas respostas
-  token_env: SENTINELS_MCP_TOKEN      # obrigatório só no modo --http
+  keep_ips: false                     # false = IPs become [IP-1] in the responses
+  token_env: SENTINELS_MCP_TOKEN      # required only in --http mode

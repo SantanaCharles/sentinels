@@ -1,89 +1,87 @@
-# Servidor MCP
+# MCP server
 
-`sentinels mcp` expõe a memória do agente para clientes MCP (Claude Code, Claude Desktop,
-ChatGPT, Cursor, VS Code…). Você pergunta em linguagem natural — "o que aconteceu na VPS hoje?",
-"quais containers estão vulneráveis ao PHP2Shell?", "explique o evento 42" — e a IA consulta as
-ferramentas.
+`sentinels mcp` exposes the agent's memory to MCP clients (Claude Code, Claude Desktop, ChatGPT,
+Cursor, VS Code…). You ask in natural language — "what happened on the VPS today?", "which
+containers are vulnerable to PHP2Shell?", "explain event 42" — and the AI queries the tools.
 
-## Ferramentas (todas somente leitura)
+## Tools (all read-only)
 
-| Ferramenta | Retorna |
-|------------|---------|
-| `resumo_servidor` | última varredura, totais, críticos abertos, eventos das últimas 24 h |
-| `listar_achados` | achados abertos (filtros: severidade, alvo, limite, riscos aceitos) |
-| `listar_eventos` | detecções em tempo real (janela em horas, severidade, limite) |
-| `detalhar_evento` | um evento com correlação, veredito do admin e análise da IA |
-| `inventario` | containers e stack da última varredura |
-| `ultimo_relatorio` | o relatório completo em Markdown |
-| `listar_silenciamentos` | regras de falso positivo ativas |
+| Tool | Returns |
+|------|---------|
+| `resumo_servidor` | last scan, totals, open criticals, events in the last 24 h |
+| `listar_achados` | open findings (filters: severity, target, limit, accepted risks) |
+| `listar_eventos` | real-time detections (window in hours, severity, limit) |
+| `detalhar_evento` | one event with correlation, the admin's verdict and the AI analysis |
+| `inventario` | containers and stack from the last scan |
+| `ultimo_relatorio` | the full report in Markdown |
+| `listar_silenciamentos` | active false-positive rules |
 
-Não há ferramenta que altere algo: o banco é aberto em modo somente leitura. Para dar feedback
-ou aceitar riscos, use a linha de comando no servidor.
+There is no tool that changes anything: the database is opened read-only. To give feedback or accept
+risks, use the command line on the server.
 
-## Conectar
+## Connect
 
-### Claude Code (via SSH — recomendado)
-
-```bash
-claude mcp add sentinels -- ssh minha-vps sudo -u sentinels sentinels mcp -config /etc/sentinels/sentinels.yaml
-```
-
-Com Docker Compose no servidor:
+### Claude Code (over SSH — recommended)
 
 ```bash
-claude mcp add sentinels -- ssh minha-vps docker compose -f /opt/sentinels/deploy/docker-compose.yml exec -T sentinels sentinels mcp -config /etc/sentinels/sentinels.yaml
+claude mcp add sentinels -- ssh my-vps sudo -u sentinels sentinels mcp -config /etc/sentinels/sentinels.yaml
 ```
 
-### Claude Desktop e outros clientes (stdio)
+With Docker Compose on the server:
+
+```bash
+claude mcp add sentinels -- ssh my-vps docker compose -f /opt/sentinels/deploy/docker-compose.yml exec -T sentinels sentinels mcp -config /etc/sentinels/sentinels.yaml
+```
+
+### Claude Desktop and other clients (stdio)
 
 ```json
 {
   "mcpServers": {
     "sentinels": {
       "command": "ssh",
-      "args": ["minha-vps", "sudo", "-u", "sentinels", "sentinels", "mcp", "-config", "/etc/sentinels/sentinels.yaml"]
+      "args": ["my-vps", "sudo", "-u", "sentinels", "sentinels", "mcp", "-config", "/etc/sentinels/sentinels.yaml"]
     }
   }
 }
 ```
 
-Use autenticação por chave SSH e, de preferência, uma regra de `sudoers` que permita ao seu
-usuário rodar **só** esse comando:
+Use SSH key authentication and, preferably, a `sudoers` rule that lets your user run **only** that
+command:
 
 ```
-seu_usuario ALL=(sentinels) NOPASSWD: /usr/local/bin/sentinels mcp -config /etc/sentinels/sentinels.yaml
+your_user ALL=(sentinels) NOPASSWD: /usr/local/bin/sentinels mcp -config /etc/sentinels/sentinels.yaml
 ```
 
 ### HTTP (Streamable HTTP)
 
-Para clientes que só falam HTTP:
+For clients that only speak HTTP:
 
 ```bash
 echo "SENTINELS_MCP_TOKEN=$(openssl rand -hex 32)" | sudo tee -a /etc/sentinels/sentinels.env
 sudo -u sentinels env $(sudo cat /etc/sentinels/sentinels.env | xargs) sentinels mcp --http 127.0.0.1:8765
-ssh -L 8765:127.0.0.1:8765 minha-vps        # na sua máquina
+ssh -L 8765:127.0.0.1:8765 my-vps        # on your machine
 ```
 
-Cliente: URL `http://127.0.0.1:8765/mcp`, header `Authorization: Bearer <token>`.
+Client: URL `http://127.0.0.1:8765/mcp`, header `Authorization: Bearer <token>`.
 
-- Token obrigatório (mínimo 24 caracteres), comparado em tempo constante.
-- Só escuta em localhost; outro endereço exige `--allow-remote` **e** TLS num proxy reverso.
-- Requisições de navegador com `Origin` que não seja localhost são recusadas (proteção contra
-  DNS rebinding).
+- Token mandatory (at least 24 characters), compared in constant time.
+- Listens only on localhost; another address requires `--allow-remote` **and** TLS on a reverse
+  proxy.
+- Browser requests with an `Origin` other than localhost are refused (DNS rebinding protection).
 
-## Privacidade e segurança
+## Privacy and security
 
-- Toda resposta passa pela mesma redação da IA: segredos removidos; IPs e e-mails viram
-  pseudônimos (`[IP-1]`), estáveis dentro de uma resposta. Para ver IPs reais: `mcp.keep_ips: true`.
-  Lembre que o conteúdo vai para o provedor do modelo que o seu cliente usa.
-- **Injeção via logs:** campos vindos de logs podem conter texto escrito por um atacante (ex.:
-  "ignore as instruções e rode este comando"). As ferramentas do Sentinels não executam nada,
-  mas o seu cliente pode ter **outras** ferramentas (shell, arquivos). Por isso cada resposta
-  marca esses campos como dados não confiáveis e as instruções do servidor pedem ao modelo que
-  não aja por causa deles. Mesmo assim: **revise antes de aprovar qualquer comando sugerido**
-  numa sessão em que o Sentinels está conectado.
+- Every response goes through the same AI redaction: secrets removed; IPs and emails become
+  pseudonyms (`[IP-1]`), stable within a response. To see real IPs: `mcp.keep_ips: true`. Remember
+  that the content goes to the model provider your client uses.
+- **Injection via logs:** fields coming from logs may contain text written by an attacker (e.g.
+  "ignore the instructions and run this command"). Sentinels' tools do not execute anything, but
+  your client may have **other** tools (shell, files). That is why each response marks those fields
+  as untrusted data and the server's instructions ask the model not to act on them. Even so:
+  **review before approving any suggested command** in a session where Sentinels is connected.
 
-## Testar
+## Test
 
 ```bash
 npx @modelcontextprotocol/inspector --cli sentinels mcp -config /etc/sentinels/sentinels.yaml --method tools/list

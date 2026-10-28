@@ -1,13 +1,13 @@
-# Configuração para o docker-compose (copie para sentinels.yaml).
-# Referência completa: sentinels.example.yaml na raiz do projeto.
+# Configuration for docker-compose (copy to sentinels.yaml).
+# Full reference: sentinels.example.yaml in the project root.
 
-# docker.socket vem de DOCKER_HOST (tcp://127.0.0.1:2375, o proxy somente leitura).
+# docker.socket comes from DOCKER_HOST (tcp://127.0.0.1:2375, the read-only proxy).
 
 scan:
   interval: 6h
   report_dir: /var/lib/sentinels/reports
   cache_dir: /var/lib/sentinels/cache
-  # urls: [https://meusite.com.br]
+  # urls: [https://mysite.com]
 
 storage:
   path: /var/lib/sentinels/sentinels.db
@@ -17,8 +17,8 @@ integrations:
   crowdsec: { enabled: auto, url: http://127.0.0.1:8080, api_key_env: SENTINELS_CROWDSEC_KEY }
   suricata: { enabled: auto, eve_log: /var/log/suricata/eve.json }
   falco:    { enabled: auto, listen: 127.0.0.1:2801 }
-  # Dentro das aplicações e bancos (docs/APLICACOES.md): logs do Postgres e das apps
-  # pela API do Docker e quem conecta em cada banco. Desligue partes com logs/db_clients: false.
+  # Inside applications and databases (docs/APPLICATIONS.md): Postgres and app logs
+  # via the Docker API, plus who connects to each database. Turn parts off with logs/db_clients: false.
   containers: { enabled: auto }
 
 alerts:

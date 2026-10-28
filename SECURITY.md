@@ -1,33 +1,32 @@
-# Política de segurança
+# Security policy
 
-## Reportar uma vulnerabilidade no Sentinels
+## Reporting a vulnerability in Sentinels
 
-Não abra issue pública. Use o **Private vulnerability reporting** do GitHub (aba *Security* →
-*Report a vulnerability*) ou escreva para o e-mail de contato da Smart Code Tecnologia em
+Do not open a public issue. Use GitHub's **Private vulnerability reporting** (the *Security* tab →
+*Report a vulnerability*) or write to Smart Code Tecnologia's contact email at
 https://smartcodetecnologia.com.br.
 
-Inclua versão (`sentinels version`), forma de instalação (systemd ou Docker) e passos para
-reproduzir. Respondemos em até 5 dias úteis e combinamos a divulgação após a correção.
+Include the version (`sentinels version`), the install method (systemd or Docker) and steps to
+reproduce. We respond within 5 business days and agree on disclosure after the fix.
 
-## Versões suportadas
+## Supported versions
 
-Apenas a versão mais recente recebe correções de segurança.
+Only the latest version receives security fixes.
 
-## Garantias de projeto
+## Project guarantees
 
-- O agente é **somente leitura**: não altera containers, arquivos do sistema nem regras de
-  firewall. Na instalação via Docker ele fala com a API do Docker por um proxy que bloqueia
-  qualquer escrita.
-- O **feed de alertas emergenciais** é assinado com Ed25519; o binário rejeita feed sem
-  assinatura válida e o feed só pode acrescentar alertas, nunca remover os embutidos.
-- Releases trazem `checksums.txt` (SHA-256); o `install.sh` recusa arquivo que não confere.
-- Texto vindo de logs é tratado como dado não confiável em alertas, relatórios, notas do cofre
-  e prompts de IA. A IA não executa ações.
-- Segredos só via variáveis de ambiente; valores de variáveis dos containers não são lidos.
+- The agent is **read-only**: it does not change containers, system files or firewall rules. On a
+  Docker install it talks to the Docker API through a proxy that blocks any write.
+- The **emergency alert feed** is signed with Ed25519; the binary rejects a feed without a valid
+  signature, and the feed can only add alerts, never remove the embedded ones.
+- Releases ship a `checksums.txt` (SHA-256); `install.sh` refuses a file that does not match.
+- Text coming from logs is treated as untrusted data in alerts, reports, vault notes and AI
+  prompts. The AI does not run actions.
+- Secrets only via environment variables; the values of container variables are not read.
 
-## Chave de assinatura do feed
+## Feed signing key
 
-A chave privada fica com os mantenedores, fora do repositório. Se for comprometida: gere um novo
-par (`go run ./cmd/feedsign keygen`), atualize `FeedPublicKey` em `internal/intel/signing.go`,
-assine o feed novamente e publique uma release — agentes antigos passam a rejeitar o feed e
-seguem com a lista embutida até serem atualizados.
+The private key stays with the maintainers, outside the repository. If it is compromised: generate a
+new pair (`go run ./cmd/feedsign keygen`), update `FeedPublicKey` in `internal/intel/signing.go`,
+sign the feed again and publish a release — old agents start rejecting the feed and keep using the
+embedded list until they are updated.

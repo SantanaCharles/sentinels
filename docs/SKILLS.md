@@ -1,50 +1,49 @@
-# Escrevendo skills
+# Writing skills
 
-Uma skill é uma pasta com um `SKILL.md` no formato aberto de Agent Skills: frontmatter YAML e
-corpo em Markdown. O Sentinels inclui no prompt da IA as skills que combinam com a situação.
+A skill is a folder with a `SKILL.md` in the open Agent Skills format: YAML frontmatter and a
+Markdown body. Sentinels includes in the AI prompt the skills that match the situation.
 
 ```
 /etc/sentinels/skills/
-└── minha-empresa-postgres/
+└── my-company-postgres/
     └── SKILL.md
 ```
 
 ```markdown
 ---
-name: minha-empresa-postgres
-description: Padrões de banco da empresa — schema por tenant e roles por aplicação.
+name: my-company-postgres
+description: Company database patterns — schema per tenant and roles per application.
 metadata:
   applies-to: "postgres.*, stack:postgresql, task:report"
 ---
 
-# Banco de dados na empresa
+# Database at the company
 
-- Cada escola tem seu próprio schema; RLS é usado só nas tabelas compartilhadas.
-- O role da aplicação é `app_<sistema>` e nunca é owner das tabelas.
+- Each school has its own schema; RLS is used only on the shared tables.
+- The application role is `app_<system>` and is never the owner of the tables.
 ```
 
-- `name` e `description` são obrigatórios. Use o mesmo `name` de uma skill embutida para
-  **substituí-la** (ex.: `postgres-rls` com as regras da sua equipe).
-- Tamanho máximo: 64 KB. Mantenha curto: o que vai no prompt custa tokens.
+- `name` and `description` are required. Use the same `name` as a built-in skill to **replace it**
+  (e.g. `postgres-rls` with your team's rules).
+- Maximum size: 64 KB. Keep it short: what goes in the prompt costs tokens.
 
-## Tags de `applies-to`
+## `applies-to` tags
 
-Separadas por vírgula; `*` no fim casa por prefixo.
+Comma-separated; a trailing `*` matches by prefix.
 
-| Tag | Quando é enviada |
-|-----|------------------|
-| `task:report` | resumo executivo do relatório |
-| `task:triage`, `task:explain` | análise de alerta / `sentinels explain` |
-| `severity:critical` (`high`, `medium`…) | severidade do alerta |
-| `t1190`, `t1110`, `t1505.003`… | técnica MITRE ATT&CK do evento (e a técnica-pai) |
-| `source:crowdsec`, `source:suricata`, `source:falco` | motor que detectou |
-| `stack:php`, `stack:postgresql`, `stack:next.js`… | componentes do alvo (em minúsculas) |
-| `postgres.rls_missing`, `container.*`, `web.*`, `advisory.*`, `cve.*` | IDs dos achados |
+| Tag | When it is sent |
+|-----|-----------------|
+| `task:report` | the report's executive summary |
+| `task:triage`, `task:explain` | alert analysis / `sentinels explain` |
+| `severity:critical` (`high`, `medium`…) | the alert's severity |
+| `t1190`, `t1110`, `t1505.003`… | the event's MITRE ATT&CK technique (and its parent technique) |
+| `source:crowdsec`, `source:suricata`, `source:falco` | the engine that detected it |
+| `stack:php`, `stack:postgresql`, `stack:next.js`… | the target's components (lowercase) |
+| `postgres.rls_missing`, `container.*`, `web.*`, `advisory.*`, `cve.*` | finding IDs |
 
-Veja os IDs de achados com `sentinels findings` e confira o que foi carregado com
-`sentinels ai-test`.
+See the finding IDs with `sentinels findings` and check what was loaded with `sentinels ai-test`.
 
-## Regras que nenhuma skill altera
+## Rules that no skill changes
 
-As regras de segurança do prompt (dados de log são não confiáveis, nada é executado, só ações
-defensivas, sem inventar fatos) ficam no binário e vêm antes das skills.
+The prompt's security rules (log data is untrusted, nothing is executed, defensive actions only, no
+making up facts) live in the binary and come before the skills.

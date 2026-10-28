@@ -1,14 +1,14 @@
-# Sentinels — stack para o Portainer (Stacks → Add stack → Web editor → cole este arquivo).
+# Sentinels — stack for Portainer (Stacks → Add stack → Web editor → paste this file).
 #
-# Depois de "Deploy the stack":
+# After "Deploy the stack":
 #   1. Containers → sentinels-sentinels-1 → Console
 #      Command: Custom → /usr/local/bin/sentinels setup -config /var/lib/sentinels/sentinels.yaml
-#      (deixe "User" vazio) → Connect → configure com as setas → "Salvar e sair"
-#   2. Reinicie o container sentinels-sentinels-1 (botão Restart)
-#   3. Logs do container: o primeiro relatório sai em ~1 minuto (alguns mais com o Trivy)
+#      (leave "User" empty) → Connect → configure with the arrow keys → "Save and exit"
+#   2. Restart the sentinels-sentinels-1 container (Restart button)
+#   3. Container logs: the first report comes out in ~1 minute (a bit more with Trivy)
 #
-# Configuração e segredos ficam no volume "sentinels-data" (sentinels.yaml e sentinels.env 0600):
-# nada para criar no host. O agente não recebe o socket do Docker: usa o proxy somente leitura.
+# Configuration and secrets live in the "sentinels-data" volume (sentinels.yaml and sentinels.env 0600):
+# nothing to create on the host. The agent does not get the Docker socket: it uses the read-only proxy.
 services:
   socket-proxy:
     image: tecnativa/docker-socket-proxy:v0.5.0
@@ -16,7 +16,7 @@ services:
     environment:
       CONTAINERS: 1
       IMAGES: 1
-      SERVICES: 1     # leitura dos serviços do Swarm (domínios do Traefik)
+      SERVICES: 1     # reading the Swarm services (Traefik domains)
       POST: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -28,7 +28,7 @@ services:
     mem_limit: 64m
 
   sentinels:
-    image: ghcr.io/santanacharles/sentinels:latest   # para fixar uma versão: :v0.2.4
+    image: ghcr.io/santanacharles/sentinels:latest   # to pin a version: :v0.2.4
     restart: unless-stopped
     depends_on: [socket-proxy]
     network_mode: host
@@ -37,9 +37,9 @@ services:
     command: ["watch", "-config", "/var/lib/sentinels/sentinels.yaml"]
     volumes:
       - sentinels-data:/var/lib/sentinels
-      # /proc do host (somente leitura): quem conecta em cada banco de dados
+      # host /proc (read-only): who connects to each database
       - /proc:/host/proc:ro
-      # Opcional, se o Suricata estiver instalado no host:
+      # Optional, if Suricata is installed on the host:
       # - /var/log/suricata:/var/log/suricata:ro
     read_only: true
     tmpfs: [/tmp]

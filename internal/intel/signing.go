@@ -13,7 +13,7 @@ import (
 )
 
 // FeedPublicKey verifies the emergency advisory feed (Ed25519, base64).
-// The private key stays with the maintainers; see docs/INSTALACAO.md for
+// The private key stays with the maintainers; see docs/INSTALLATION.md for
 // how the feed is signed and how the key is rotated.
 var FeedPublicKey = "5tvGiY11pPv9y7PZCEgexgkbv5OmG74deW/h+M+qFqA="
 

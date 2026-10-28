@@ -15,7 +15,7 @@ import (
 	"github.com/SantanaCharles/sentinels/internal/version"
 )
 
-const integrationsDoc = "https://github.com/SantanaCharles/sentinels/blob/main/docs/INTEGRACOES.md"
+const integrationsDoc = "https://github.com/SantanaCharles/sentinels/blob/main/docs/INTEGRATIONS.md"
 
 // healthFunc describes what the running agent actually uses, for /doctor
 // on Telegram. Install steps are only text: nothing is executed.
