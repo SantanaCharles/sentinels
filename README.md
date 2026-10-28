@@ -1,5 +1,8 @@
 # Sentinels
 
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/7565b218-8858-4a31-b759-b62eb473fb91" />
+
+
 **Free and open-source** security agent for servers and VPSs. Install it on your server and it:
 
 1. **Discovers** your containers and published apps and identifies each one's stack.
