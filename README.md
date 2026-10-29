@@ -48,6 +48,7 @@ nowhere except where you configure it to.
 | Containers | privileged containers, mounted `docker.sock`, running as root, host network |
 | Exposure | databases or admin panels reachable from the internet |
 | Images | known CVEs via Trivy |
+| Host OS | known CVEs in the server's own OS packages via Trivy (kernel included) — `/` on systemd, or the host filesystem mounted read-only in Docker |
 | Leaked keys | API keys, tokens and private keys baked into images (files and build history), `.env`/`.git` served by the website, secrets in environment variables — values are never read or stored |
 | Web | missing security headers, exposed server version, permissive CORS |
 | Database (PostgreSQL) | multi-tenant tables without Row-Level Security, RLS without `FORCE`, app connecting as owner/superuser |

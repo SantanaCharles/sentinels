@@ -24,6 +24,7 @@ import (
 type Options struct {
 	ProcRoot string // "/proc", or "/host/proc" when running in a container
 	NoTrivy  bool
+	NoHostOS bool // skip the host operating-system CVE scan
 	Log      func(format string, args ...any)
 }
 
@@ -45,6 +46,8 @@ type IntelStatus struct {
 	// KernelCVEsSkipped counts CVEs of kernel packages inside images, which do
 	// not apply to containers (they run on the host kernel).
 	KernelCVEsSkipped int `json:"kernel_cves_skipped,omitempty"`
+	// HostOS is true when the host operating system was scanned for CVEs.
+	HostOS bool `json:"host_os,omitempty"`
 }
 
 type Result struct {
@@ -211,6 +214,7 @@ func Run(ctx context.Context, cfg config.Config, opt Options) *Result {
 	}
 
 	res.Findings = append(res.Findings, runTrivy(ctx, cfg, opt, containers, res, warn)...)
+	res.Findings = append(res.Findings, runTrivyHost(ctx, cfg, opt, res, warn)...)
 
 	if cves := intel.CVEs(res.Findings); len(cves) > 0 && !cfg.Scan.Offline {
 		kev, err := intel.LoadKEV(ctx, cfg.Scan.CacheDir)
@@ -270,6 +274,59 @@ func runTrivy(ctx context.Context, cfg config.Config, opt Options, cs []discover
 		res.Intel.KernelCVEsSkipped += skipped
 	}
 	return out
+}
+
+// runTrivyHost scans the host operating system's packages for CVEs. It is
+// optional and degrades quietly: on a systemd install the root is "/"; in the
+// Docker container it needs the host filesystem mounted (e.g. -v /:/host/root:ro)
+// and scan.host_root set, otherwise there is nothing to scan.
+func runTrivyHost(ctx context.Context, cfg config.Config, opt Options, res *Result, warn func(string, ...any)) []finding.Finding {
+	mode := strings.ToLower(cfg.Scan.HostOS)
+	if mode == "" {
+		mode = "auto"
+	}
+	if mode == "false" || opt.NoHostOS || opt.NoTrivy {
+		return nil
+	}
+	if _, ok := integrations.TrivyAvailable(); !ok {
+		if mode == "true" {
+			warn("busca de CVEs do SO habilitada, mas o trivy não está no PATH")
+		}
+		return nil
+	}
+	root, reason := resolveHostRoot(cfg)
+	if root == "" {
+		if mode == "true" {
+			warn("não consegui escanear o SO do host: %s", reason)
+		} else {
+			opt.Log("SO do host: %s; pulando (scan.host_os: auto)", reason)
+		}
+		return nil
+	}
+	opt.Log("trivy: SO do host (%s)", root)
+	fs, err := integrations.TrivyRootfs(ctx, root, "host")
+	if err != nil {
+		warn("%v", err)
+		return nil
+	}
+	res.Intel.HostOS = true
+	return fs
+}
+
+// resolveHostRoot finds the host filesystem to scan: an explicit scan.host_root,
+// then /host/root (the Docker mount), then / when running natively. Inside a
+// container with no host mount it returns ("", reason) so the caller can skip.
+func resolveHostRoot(cfg config.Config) (root, reason string) {
+	if cfg.Scan.HostRoot != "" {
+		return cfg.Scan.HostRoot, ""
+	}
+	if fi, err := os.Stat("/host/root"); err == nil && fi.IsDir() {
+		return "/host/root", ""
+	}
+	if discovery.SelfContainerID("/proc") != "" {
+		return "", "rodando em container sem o SO do host montado (monte `-v /:/host/root:ro` e defina scan.host_root: /host/root)"
+	}
+	return "/", ""
 }
 
 func phpFromComponents(comps []string) (string, string) {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -77,11 +78,39 @@ func TrivyImage(ctx context.Context, image, target string) (fs []finding.Finding
 	return parseTrivy(stdout.Bytes(), image, target)
 }
 
-func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error) {
-	var rep trivyReport
-	if err := json.Unmarshal(raw, &rep); err != nil {
-		return nil, 0, fmt.Errorf("saída do trivy inválida: %w", err)
+// TrivyRootfs scans the host's operating-system packages for HIGH and
+// CRITICAL CVEs (Trivy rootfs on the given filesystem root). Unlike the
+// image scan, kernel-package CVEs are kept: they apply to the host.
+func TrivyRootfs(ctx context.Context, root, target string) ([]finding.Finding, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+	args := []string{"rootfs", "--quiet", "--format", "json", "--scanners", "vuln",
+		"--severity", "HIGH,CRITICAL"}
+	// Virtual filesystems, container layers and our own cache are not the host OS.
+	for _, d := range []string{"proc", "sys", "dev", "run", "var/lib/docker", "var/lib/sentinels"} {
+		args = append(args, "--skip-dirs", filepath.Join(root, d))
 	}
+	args = append(args, root)
+	cmd := exec.CommandContext(ctx, "trivy", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("trivy rootfs %s: %v: %s", root, err, strings.TrimSpace(lastLine(stderr.String())))
+	}
+	var rep trivyReport
+	if err := json.Unmarshal(stdout.Bytes(), &rep); err != nil {
+		return nil, fmt.Errorf("saída do trivy inválida: %w", err)
+	}
+	out, _ := vulnFindings(rep, target, "sistema operacional do host", false, true)
+	return out, nil
+}
+
+// vulnFindings maps Trivy vulnerabilities to findings, deduplicated by
+// CVE+package. skipKernel drops kernel-package CVEs (they do not apply inside
+// a container; for the host they do, so it is false). source goes into the
+// detail ("imagem X" or "sistema operacional do host") and hostUpgrade picks a
+// system-package-upgrade remediation instead of a rebuild-the-image one.
+func vulnFindings(rep trivyReport, target, source string, skipKernel, hostUpgrade bool) ([]finding.Finding, int) {
 	seen := map[string]bool{}
 	var out []finding.Finding
 	skipped := 0
@@ -92,13 +121,13 @@ func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error
 				continue
 			}
 			seen[key] = true
-			if isKernelPackage(v.PkgName) {
+			if skipKernel && isKernelPackage(v.PkgName) {
 				skipped++
 				continue
 			}
 			sev, _ := finding.ParseSeverity(v.Severity)
 			if sev < finding.High {
-				continue // MEDIUM is only requested for secrets
+				continue // MEDIUM is only requested for secrets, on the image scan
 			}
 			f := finding.Finding{
 				ID:       "cve." + v.VulnerabilityID,
@@ -107,18 +136,33 @@ func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error
 				CVE:      v.VulnerabilityID,
 				CWE:      v.CweIDs,
 				Title:    fmt.Sprintf("%s em %s %s", v.VulnerabilityID, v.PkgName, v.InstalledVersion),
-				Detail:   strings.TrimSpace(v.Title + " (imagem " + image + ")"),
+				Detail:   strings.TrimSpace(v.Title + " (" + source + ")"),
 			}
-			if v.FixedVersion != "" {
-				f.Remediation = fmt.Sprintf("Atualize %s para %s ou posterior (normalmente: atualizar a imagem base e reconstruir).", v.PkgName, v.FixedVersion)
-			} else {
+			switch {
+			case v.FixedVersion == "":
 				f.Remediation = "Ainda sem correção publicada. Avalie se o componente é usado e acompanhe o fornecedor."
+			case hostUpgrade:
+				f.Remediation = fmt.Sprintf("Atualize o pacote %s para %s ou posterior: `sudo apt update && sudo apt upgrade` (ou `dnf upgrade`). CVEs do kernel exigem reiniciar o servidor.", v.PkgName, v.FixedVersion)
+			default:
+				f.Remediation = fmt.Sprintf("Atualize %s para %s ou posterior (normalmente: atualizar a imagem base e reconstruir).", v.PkgName, v.FixedVersion)
 			}
 			if v.PrimaryURL != "" {
 				f.References = []string{v.PrimaryURL}
 			}
 			out = append(out, f)
 		}
+	}
+	return out, skipped
+}
+
+func parseTrivy(raw []byte, image, target string) ([]finding.Finding, int, error) {
+	var rep trivyReport
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		return nil, 0, fmt.Errorf("saída do trivy inválida: %w", err)
+	}
+	out, skipped := vulnFindings(rep, target, "imagem "+image, true, false)
+	seen := map[string]bool{}
+	for _, r := range rep.Results {
 		for _, s := range r.Secrets {
 			key := "secret|" + s.RuleID + "|" + r.Target
 			if seen[key] {

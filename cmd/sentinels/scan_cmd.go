@@ -20,6 +20,7 @@ func runScan(ctx context.Context, args []string) int {
 	out := fs.String("out", "", "diretório do relatório (padrão: scan.report_dir)")
 	offline := fs.Bool("offline", false, "não baixar CISA KEV, EPSS nem o feed de alertas")
 	noTrivy := fs.Bool("no-trivy", false, "não executar o Trivy")
+	noHostOS := fs.Bool("no-host-os", false, "não buscar CVEs do SO do host")
 	procRoot := fs.String("proc", "/proc", "raiz do /proc do host")
 	failOn := fs.String("fail-on", "", "sai com código 3 se houver achado desta severidade ou maior (ex.: high)")
 	quiet := fs.Bool("quiet", false, "não mostrar o progresso")
@@ -47,7 +48,7 @@ func runScan(ctx context.Context, args []string) int {
 	if *quiet {
 		log = nil
 	}
-	opt := scan.Options{ProcRoot: *procRoot, NoTrivy: *noTrivy, Log: log}
+	opt := scan.Options{ProcRoot: *procRoot, NoTrivy: *noTrivy, NoHostOS: *noHostOS, Log: log}
 
 	st, err := store.Open(cfg.Storage.Path)
 	if err != nil {

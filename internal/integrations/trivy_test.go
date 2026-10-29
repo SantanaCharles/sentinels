@@ -1,11 +1,21 @@
 package integrations
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/SantanaCharles/sentinels/internal/finding"
 )
+
+func mustReport(t *testing.T, raw []byte) trivyReport {
+	t.Helper()
+	var rep trivyReport
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		t.Fatal(err)
+	}
+	return rep
+}
 
 func TestParseTrivy(t *testing.T) {
 	raw := []byte(`{"Results":[{"Target":"debian","Vulnerabilities":[
@@ -38,6 +48,29 @@ func TestTrivySkipsKernelPackages(t *testing.T) {
 	fs, skipped, err := parseTrivy(raw, "img", "c")
 	if err != nil || skipped != 2 || len(fs) != 2 {
 		t.Errorf("achados %d, ignorados %d (%v); quer 2 e 2", len(fs), skipped, err)
+	}
+}
+
+func TestParseTrivyOSKeepsKernel(t *testing.T) {
+	raw := []byte(`{"Results":[{"Target":"debian","Class":"os-pkgs","Vulnerabilities":[
+	  {"VulnerabilityID":"CVE-2026-1000","PkgName":"linux-image-6.1.0-9","InstalledVersion":"6.1","FixedVersion":"6.1.1","Severity":"CRITICAL"},
+	  {"VulnerabilityID":"CVE-2026-1001","PkgName":"openssl","InstalledVersion":"3.0.1","FixedVersion":"3.0.9","Severity":"HIGH"},
+	  {"VulnerabilityID":"CVE-2026-1002","PkgName":"libx","InstalledVersion":"1","Severity":"MEDIUM"}
+	]}]}`)
+	out, _ := vulnFindings(mustReport(t, raw), "host", "sistema operacional do host", false, true)
+	if len(out) != 2 { // kernel kept, HIGH/CRITICAL only (MEDIUM dropped)
+		t.Fatalf("esperado 2 achados (kernel mantido, média descartada), veio %d: %+v", len(out), out)
+	}
+	for _, f := range out {
+		if f.Target != "host" {
+			t.Errorf("alvo deveria ser host: %+v", f)
+		}
+		if !strings.Contains(f.Detail, "sistema operacional do host") {
+			t.Errorf("detalhe deveria citar o SO do host: %q", f.Detail)
+		}
+	}
+	if !strings.Contains(out[0].Remediation, "apt") {
+		t.Errorf("remediação do host deveria sugerir atualizar o pacote: %q", out[0].Remediation)
 	}
 }
 

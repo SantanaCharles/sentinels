@@ -8,6 +8,11 @@ docker:
 scan:
   interval: 6h            # periodic scan in watch mode
   report_dir: /var/lib/sentinels/reports
+  # Scan the host OS packages for CVEs (Trivy rootfs). auto (default) scans only
+  # when the host filesystem is reachable: "/" on a systemd install, or
+  # /host/root in Docker (mount it read-only and set host_root — see docs).
+  # host_os: auto                       # auto | true | false
+  # host_root: /host/root               # host filesystem to scan (Docker)
 
 storage:
   path: /var/lib/sentinels/sentinels.db   # local memory (events and finding history)

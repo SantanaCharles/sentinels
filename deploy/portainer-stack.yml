@@ -39,6 +39,8 @@ services:
       - sentinels-data:/var/lib/sentinels
       # host /proc (read-only): who connects to each database
       - /proc:/host/proc:ro
+      # Optional: scan the host OS packages for CVEs (set scan.host_root: /host/root)
+      # - /:/host/root:ro
       # Optional, if Suricata is installed on the host:
       # - /var/log/suricata:/var/log/suricata:ro
     read_only: true

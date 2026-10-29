@@ -35,6 +35,12 @@ type Scan struct {
 	CacheDir  string   `yaml:"cache_dir"`
 	URLs      []string `yaml:"urls,omitempty"`    // public URLs to check besides published ports
 	Offline   bool     `yaml:"offline,omitempty"` // skip KEV/EPSS downloads
+	// HostOS scans the host operating system's packages for CVEs (Trivy rootfs):
+	// auto (default, scans only when the host rootfs is reachable), true or false.
+	HostOS string `yaml:"host_os,omitempty"`
+	// HostRoot is the host filesystem to scan. Empty resolves to / on a systemd
+	// install, or /host/root when mounted in the Docker container.
+	HostRoot string `yaml:"host_root,omitempty"`
 }
 
 type Storage struct {
@@ -155,6 +161,7 @@ func Default() Config {
 			Interval:  "6h",
 			ReportDir: "/var/lib/sentinels/reports",
 			CacheDir:  "/var/lib/sentinels/cache",
+			HostOS:    "auto",
 		},
 		Storage: Storage{Path: "/var/lib/sentinels/sentinels.db", RetentionDays: 90},
 		Integrations: Integrations{
@@ -233,6 +240,11 @@ func (c Config) Validate() error {
 	}
 	if c.Alerts.DailyReport != "" && !validClock(c.Alerts.DailyReport) {
 		return fmt.Errorf("alerts.daily_report inválido: %q (use HH:MM, ex.: 08:00)", c.Alerts.DailyReport)
+	}
+	switch c.Scan.HostOS {
+	case "", "auto", "true", "false":
+	default:
+		return fmt.Errorf("scan.host_os inválido: %q (use auto, true ou false)", c.Scan.HostOS)
 	}
 	for _, s := range []struct{ name, v string }{
 		{"alerts.min_severity", c.Alerts.MinSeverity}, {"ai.min_severity", c.AI.MinSeverity},

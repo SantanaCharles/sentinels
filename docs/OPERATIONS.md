@@ -73,6 +73,29 @@ The checked domains are those in `scan.urls` **plus** the ones discovered on the
 (`Host(...)`) and Caddy labels, from containers and Swarm services (up to 30). To read the Swarm
 services, the socket-proxy needs `SERVICES: 1` — it already ships in the `deploy/` files.
 
+### Host OS vulnerabilities
+
+The scan also checks the **server's own OS packages** for known CVEs (Trivy `rootfs`), kernel
+included — complementing the image CVEs. It is controlled by `scan.host_os` (`auto` by default,
+`true` or `false`):
+
+- **systemd install**: the agent runs on the host, so it scans `/` with no extra step.
+- **Docker install**: the distroless container does not see the host filesystem. To enable it, mount
+  the host root read-only and point the agent at it — add to the `sentinels` service in
+  `docker-compose.yml`:
+
+  ```yaml
+      volumes:
+        - /:/host/root:ro
+  ```
+
+  and set `scan.host_root: /host/root` in `sentinels.yaml`, then
+  `docker compose up -d --force-recreate sentinels`. With `host_os: auto` and no mount, the host OS
+  scan is simply skipped (the report says `CVEs do SO do host não`).
+
+Host CVEs appear under the target `host`; the remediation is a system package upgrade
+(`apt upgrade` / `dnf upgrade`), and kernel CVEs note that a reboot is required.
+
 ## 2. Version and upgrade
 
 ```bash

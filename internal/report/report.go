@@ -56,8 +56,8 @@ func Markdown(w io.Writer, r *scan.Result) {
 	for _, s := range order {
 		p("| %s | %d |\n", s.Label(), count[s])
 	}
-	p("\nFontes: %d alerta(s) emergencial(is), CISA KEV %s, EPSS %s, Trivy %s.\n\n",
-		r.Intel.Advisories, yesNo(r.Intel.KEV), yesNo(r.Intel.EPSS), yesNo(r.Intel.Trivy))
+	p("\nFontes: %d alerta(s) emergencial(is), CISA KEV %s, EPSS %s, Trivy %s (CVEs do SO do host %s).\n\n",
+		r.Intel.Advisories, yesNo(r.Intel.KEV), yesNo(r.Intel.EPSS), yesNo(r.Intel.Trivy), yesNo(r.Intel.HostOS))
 	if n := r.Intel.KernelCVEsSkipped; n > 0 {
 		p("%d CVE(s) de pacotes do kernel dentro das imagens foram desconsideradas: containers usam o kernel do host. Mantenha o kernel do servidor atualizado (`unattended-upgrades`).\n\n", n)
 	}
