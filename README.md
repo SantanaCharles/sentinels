@@ -1,6 +1,6 @@
 # Sentinels
 
-*Open-source security agent for VPS & Docker — stack discovery, container CVE scanning (Trivy), and real-time attack detection (CrowdSec · Suricata · Falco), with Telegram alerts and AI triage.*
+*Catch the attack that already got in. A free, read-only security agent for VPS & Docker: stack discovery, container CVE scanning (Trivy), and real-time attack detection (CrowdSec · Suricata · Falco), with Telegram alerts and AI triage.*
 
 [![CI](https://github.com/SantanaCharles/sentinels/actions/workflows/ci.yml/badge.svg)](https://github.com/SantanaCharles/sentinels/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/SantanaCharles/sentinels)](https://github.com/SantanaCharles/sentinels/releases)
